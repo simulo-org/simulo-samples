@@ -1,0 +1,35 @@
+name: Bug report
+description: Report a problem with a published sample or this repository.
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Share enough detail for a maintainer to reproduce the problem.
+  - type: input
+    id: sample
+    attributes:
+      label: Sample
+      description: Name the sample, if the problem is specific to one.
+      placeholder: cartpole
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Describe the observed behavior and the expected behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: List the commands and inputs that reproduce the problem.
+    validations:
+      required: true
+  - type: input
+    id: client-version
+    attributes:
+      label: Simulo client version
+      description: Run `simulo --version` and paste the result.
+    validations:
+      required: true

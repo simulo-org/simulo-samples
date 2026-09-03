@@ -1,0 +1,26 @@
+name: Sample request
+description: Request a new public sample.
+title: "[Sample]: "
+labels: [sample-request]
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: Learning goal
+      description: Describe what a reader should learn from the sample.
+    validations:
+      required: true
+  - type: textarea
+    id: task
+    attributes:
+      label: Robot and task
+      description: Describe the robot, environment, and task the sample should cover.
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Why this would help
+      description: Explain who would use the sample and how it would help them.
+    validations:
+      required: true

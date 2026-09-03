@@ -1,0 +1,5 @@
+.simulo/
+__pycache__/
+*.py[cod]
+.venv/
+.ruff_cache/
