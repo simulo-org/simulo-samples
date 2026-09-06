@@ -8,8 +8,17 @@ than an interface: there is no API here whose compatibility a semantic version c
 
 ## [Unreleased]
 
+### Added
+
+- `simulo install samples` as a documented way to get this repository, alongside
+  `git clone`, on Simulo client `0.25.0` or newer.
+
 ### Changed
 
+- `tools/validate_samples.py --discover` now reads the installed client's own reported
+  version (`simulo --version`) and fails if it falls outside the declared compatibility
+  range, instead of only proving that some unspecified client packages every job. A
+  green `discovery` run is now evidence about which release it actually exercised.
 - Widened the declared Simulo client compatibility range to `>=0.23.1,<0.26` to admit
   `simulo` 0.25.0, published after this repository's samples were validated. No sample was
   re-run against the new release: `runtime_minutes`, `published`, and each README's "What

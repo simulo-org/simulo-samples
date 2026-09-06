@@ -28,6 +28,13 @@ git clone https://github.com/simulo-org/simulo-samples.git
 cd simulo-samples
 ```
 
+On Simulo client `0.25.0` or newer, `simulo install samples` does the same clone for you:
+
+```bash
+simulo install samples
+cd simulo-samples
+```
+
 ## Quick start
 
 Start with [Hello](samples/hello/): it is deterministic, requests no GPU, uses no catalog

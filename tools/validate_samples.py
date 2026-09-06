@@ -63,6 +63,12 @@ ASSET_ENTRY_SUFFIXES = (".urdf", ".usd", ".usda", ".usdc", ".usdz")
 # The platform assigns asset versions as v1, v2, and so on.
 ASSET_VERSION_PATTERN = re.compile(r"v[1-9][0-9]*\Z")
 ASSETS_README = "README.md"
+# The single source of truth for this file's own comparisons. samples.toml's [compat]
+# value is checked against this constant in load_catalog(), and discover() checks the
+# installed client's own version against it too. ci.yml's discovery matrix and every
+# sample README carry their own copies; nothing keeps those in step with this one.
+COMPAT_RANGE = ">=0.23.1,<0.26"
+VERSION_RANGE_PATTERN = re.compile(r"\A>=(?P<min>\d+(?:\.\d+)*),<(?P<max>\d+(?:\.\d+)*)\Z")
 
 
 class ValidationError(Exception):
@@ -85,8 +91,8 @@ def load_catalog() -> list[dict[str, Any]]:
         fail(f"samples.toml is invalid TOML: {error}")
 
     compat = catalog.get("compat")
-    if not isinstance(compat, dict) or compat.get("simulo") != ">=0.23.1,<0.26":
-        fail('samples.toml must contain [compat] simulo = ">=0.23.1,<0.26"')
+    if not isinstance(compat, dict) or compat.get("simulo") != COMPAT_RANGE:
+        fail(f'samples.toml must contain [compat] simulo = "{COMPAT_RANGE}"')
 
     entries = catalog.get("samples", [])
     if not isinstance(entries, list):
@@ -368,10 +374,52 @@ def validate_index(entries: list[dict[str, Any]]) -> None:
         )
 
 
+def _parse_version(version: str) -> tuple[int, ...]:
+    return tuple(int(part) for part in version.split("."))
+
+
+def _version_in_range(version: str, range_spec: str) -> bool:
+    match = VERSION_RANGE_PATTERN.fullmatch(range_spec)
+    if match is None:
+        fail(f"cannot parse compatibility range: {range_spec!r}")
+    parsed = _parse_version(version)
+    minimum = _parse_version(match["min"])
+    maximum = _parse_version(match["max"])
+    width = max(len(parsed), len(minimum), len(maximum))
+    pad = lambda t: t + (0,) * (width - len(t))  # noqa: E731
+    parsed, minimum, maximum = pad(parsed), pad(minimum), pad(maximum)
+    return minimum <= parsed < maximum
+
+
+def _installed_simulo_version(executable: str) -> str:
+    # `simulo --version` prints "simulo X.Y.Z" and nothing else; --discover shells out
+    # to this same executable to package every job, so reading its version the same way
+    # (rather than importing simulo into this script's own interpreter) reports the
+    # version that will actually run the jobs below, whatever environment installed it.
+    result = subprocess.run([executable, "--version"], text=True, capture_output=True, check=False)
+    if result.returncode != 0:
+        fail(f"'{executable} --version' failed: {result.stderr.strip() or result.stdout.strip()}")
+    output = result.stdout.strip()
+    parts = output.split()
+    if len(parts) != 2 or parts[0] != "simulo":
+        fail(f"'{executable} --version' printed an unexpected shape: {output!r}")
+    return parts[1]
+
+
 def discover(entries: list[dict[str, Any]]) -> None:
     executable = shutil.which("simulo")
     if executable is None:
         fail("--discover requires the simulo command on PATH")
+
+    installed_version = _installed_simulo_version(executable)
+    if not _version_in_range(installed_version, COMPAT_RANGE):
+        fail(
+            f"installed simulo {installed_version} is outside the declared compatibility "
+            f"range {COMPAT_RANGE!r} — this run is not evidence about the declared range"
+        )
+    print(
+        f"Discovering against installed simulo {installed_version} (declared range {COMPAT_RANGE})."
+    )
 
     environment = os.environ.copy()
     environment.pop("SIMULO_API_URL", None)
