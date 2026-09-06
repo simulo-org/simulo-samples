@@ -12,4 +12,5 @@ than an interface: there is no API here whose compatibility a semantic version c
 
 - Repository scaffold and structural checks for the sample catalog.
 - Hello: submit a job, follow its log, and read its result. Requests no GPU.
+- Cartpole: train a balancing policy and read the reward trend and saved checkpoint.
 - Samples declare compatibility with Simulo client versions `>=0.23.1,<0.25`.

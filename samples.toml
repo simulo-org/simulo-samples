@@ -14,3 +14,17 @@ difficulty = "introductory"
 learning_goal = "Submit a job and read its output"
 runtime_minutes = 1
 published = true
+
+[[samples]]
+slug = "cartpole"
+title = "Cartpole"
+robot = "Cartpole"
+task = "Train a PPO policy that balances a pole on a sliding cart."
+concepts = ["Task lifecycle", "LearningEnv and RLTrainer", "Volumes", "ResumableCheckpoint"]
+assets = ["simulo/robot/cartpole:v1"]
+jobs = ["train_cartpole"]
+gpu = true
+difficulty = "introductory"
+learning_goal = "Train a policy"
+runtime_minutes = 2
+published = true
