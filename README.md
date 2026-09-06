@@ -66,6 +66,7 @@ Each sample README explains its prerequisites, assets, expected results, and run
 #### Bring your own robot
 
 - [Bring your own URDF](samples/byo-urdf-arm/): Your own three-joint arm. Publish a robot you wrote as a URDF to your organization's catalog, then train a reaching policy on it. Concepts: simulo asset publish, organization catalog, URDF robots, joint-space reaching. Assets: `robot/byo-urdf-arm:v1`. Hardware: L4-class cloud GPU; no local GPU required. Runtime: about 2 minutes.
+- [Bring your own F1TENTH-compatible car](samples/byo-f1tenth-drift/): Your own F1TENTH-compatible race car. Publish an F1TENTH-compatible USD race car to your organization's catalog, then train a drifting policy around a stadium-shaped track. Concepts: simulo asset publish, organization catalog, USD robots, 4WD steering, multi-term rewards, best-checkpoint export, RLPlayer, MCAP recording. Assets: `robot/f1tenth:v1`. Hardware: L4-class cloud GPU; no local GPU required. Runtime: about 5 minutes.
 
 ### By difficulty
 
@@ -82,6 +83,7 @@ Each sample README explains its prerequisites, assets, expected results, and run
 - [Franka reach](samples/franka-reach/): Franka Panda arm. Train an arm to put its hand on a moving goal, with a differential IK controller. Concepts: Task-space control, DifferentialIKController, body pose readback. Assets: `simulo/robot/franka-panda:v1`. Hardware: L4-class cloud GPU; no local GPU required. Runtime: about 3 minutes.
 - [Install a PyPI dependency](samples/pip-install-shapely/): JetBot. Compute a training reward with a third-party PyPI library installed into the job's runtime. Concepts: Runtime.pip_install, Runtime.env, third-party rewards. Assets: `simulo/robot/jetbot:v2`, `simulo/gpu-rl:2026.06`. Hardware: L4-class cloud GPU; no local GPU required. Runtime: about 3 minutes.
 - [Bring your own URDF](samples/byo-urdf-arm/): Your own three-joint arm. Publish a robot you wrote as a URDF to your organization's catalog, then train a reaching policy on it. Concepts: simulo asset publish, organization catalog, URDF robots, joint-space reaching. Assets: `robot/byo-urdf-arm:v1`. Hardware: L4-class cloud GPU; no local GPU required. Runtime: about 2 minutes.
+- [Bring your own F1TENTH-compatible car](samples/byo-f1tenth-drift/): Your own F1TENTH-compatible race car. Publish an F1TENTH-compatible USD race car to your organization's catalog, then train a drifting policy around a stadium-shaped track. Concepts: simulo asset publish, organization catalog, USD robots, 4WD steering, multi-term rewards, best-checkpoint export, RLPlayer, MCAP recording. Assets: `robot/f1tenth:v1`. Hardware: L4-class cloud GPU; no local GPU required. Runtime: about 5 minutes.
 <!-- END INDEX -->
 
 ## Assets

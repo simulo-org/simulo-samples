@@ -24,4 +24,6 @@ than an interface: there is no API here whose compatibility a semantic version c
 - A repository-level `assets/` tree holding the files a sample tells the reader to
   publish to their own catalog. A directory's path is the reference it publishes as:
   `assets/robot/byo-urdf-arm/` becomes `robot/byo-urdf-arm:v1`.
+- Bring your own F1TENTH-compatible car: publish a USD race car to your organization's
+  catalog, then train a drifting policy around a stadium-shaped track and record a lap.
 - Samples declare compatibility with Simulo client versions `>=0.23.1,<0.25`.

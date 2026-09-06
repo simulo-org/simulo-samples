@@ -112,3 +112,17 @@ difficulty = "intermediate"
 learning_goal = "Bring your own robot"
 runtime_minutes = 2
 published = true
+
+[[samples]]
+slug = "byo-f1tenth-drift"
+title = "Bring your own F1TENTH-compatible car"
+robot = "Your own F1TENTH-compatible race car"
+task = "Publish an F1TENTH-compatible USD race car to your organization's catalog, then train a drifting policy around a stadium-shaped track."
+concepts = ["simulo asset publish", "organization catalog", "USD robots", "4WD steering", "multi-term rewards", "best-checkpoint export", "RLPlayer", "MCAP recording"]
+assets = ["robot/f1tenth:v1"]
+jobs = ["train", "rollout"]
+gpu = true
+difficulty = "intermediate"
+learning_goal = "Bring your own robot"
+runtime_minutes = 5
+published = true
