@@ -6,11 +6,11 @@ that you submit with the Simulo client.
 
 ## Prerequisites and compatibility
 
-Install Python 3.11 or newer and the Simulo client. This repository targets Simulo client
-versions `>=0.23.1,<0.24`.
+Install Python 3.11 or newer and the Simulo client. Every sample works with Simulo client
+versions `>=0.23.1,<0.25`.
 
 ```bash
-python -m pip install "simulo>=0.23.1,<0.24"
+python -m pip install "simulo>=0.23.1,<0.25"
 ```
 
 Samples run in the Simulo cloud. Sign in before submitting a job:
@@ -21,31 +21,37 @@ simulo login
 
 ## Get the samples
 
-Clone this repository to use the samples available today:
+Clone this repository:
 
 ```bash
 git clone https://github.com/simulo-org/simulo-samples.git
 cd simulo-samples
 ```
 
-A future Simulo client release will include `simulo install samples`. That command is not
-available in Simulo 0.23.1, so use `git clone` until you have a client version that carries it.
-
 ## Quick start
 
-Choose a published sample from the index, then run one of its listed jobs:
+Start with [Hello](samples/hello/): it is deterministic, requests no GPU, uses no catalog
+assets, and has an exact expected result.
 
 ```bash
-simulo run samples/<sample>/app.py --job <job>
+simulo run samples/hello/app.py --name robot --repeat 5
 ```
 
-Each sample README explains its prerequisites, assets, expected results, and estimated runtime.
+Each sample README explains its prerequisites, assets, expected results, and runtime.
 
 ## Sample index
 
 <!-- BEGIN INDEX -->
-No samples are published yet.
+No sample directories are available in this checkout.
 <!-- END INDEX -->
+
+## Assets
+
+Most samples train against robots the Simulo catalog already carries, named with a
+publisher: `simulo/robot/cartpole:v1`. A sample can also use a robot, world, or prop that
+this repository ships and you publish to your own organization's catalog, named without
+one: `robot/byo-urdf-arm:v1`. Those files live under [`assets/`](assets/), one directory
+per asset, and that directory's path is the reference it publishes as.
 
 ## Update a clone
 
@@ -63,5 +69,4 @@ are not accepted yet.
 
 ## Licensing and attribution
 
-Sample code is available under the [MIT License](LICENSE). Catalog assets retain their own
-terms, which each sample names in its README.
+Sample code is available under the [MIT License](LICENSE). Copyright (c) 2026 Simulo LLC.

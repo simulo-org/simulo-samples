@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
-"""Validate the public sample catalog without requiring cloud access."""
+"""Check the sample catalog and repository structure without cloud access."""
 
 from __future__ import annotations
 
 import argparse
-import datetime as dt
-import math
 import os
 import re
 import shutil
@@ -19,6 +17,7 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 SAMPLES_DIR = ROOT / "samples"
+ASSETS_DIR = ROOT / "assets"
 CATALOG_PATH = ROOT / "samples.toml"
 README_PATH = ROOT / "README.md"
 INDEX_BEGIN = "<!-- BEGIN INDEX -->"
@@ -34,7 +33,6 @@ README_HEADINGS = [
     "Troubleshooting",
     "Extending it",
     "Assets, licensing, attribution",
-    "Validated against",
 ]
 REQUIRED_FIELDS = {
     "slug": str,
@@ -48,15 +46,23 @@ REQUIRED_FIELDS = {
     "difficulty": str,
     "learning_goal": str,
     "runtime_minutes": int,
-    "est_cost_usd": float,
-    "validated_against": str,
-    "validated_on": str,
     "published": bool,
 }
 DIFFICULTIES = ("introductory", "intermediate", "advanced")
 SAMPLE_FILES = {"app.py", "README.md", ".simuloignore"}
+IGNORED_SAMPLE_ENTRIES = {"__pycache__", ".simulo"}
 SLUG_PATTERN = re.compile(r"[a-z0-9][a-z0-9-]*\Z")
-CLIENT_VERSION_PATTERN = re.compile(r"(\d+)\.(\d+)\.(\d+)\Z")
+# The kinds `simulo asset publish --kind` accepts. A catalog reference is
+# `[<publisher>/]<kind>/<name>:v<N>`, so a directory at `assets/<kind>/<name>/`
+# maps onto the reference a sample declares without any further bookkeeping.
+ASSET_KINDS = ("robot", "world", "prop")
+# The file formats the platform starts an asset package from. Each asset
+# directory keeps exactly one of these at its own root, beside the meshes and
+# other files it references, so `--entry <file>` is always a bare filename.
+ASSET_ENTRY_SUFFIXES = (".urdf", ".usd", ".usda", ".usdc", ".usdz")
+# The platform assigns asset versions as v1, v2, and so on.
+ASSET_VERSION_PATTERN = re.compile(r"v[1-9][0-9]*\Z")
+ASSETS_README = "README.md"
 
 
 class ValidationError(Exception):
@@ -72,14 +78,6 @@ def require_exact_type(value: Any, expected: type, label: str) -> None:
         fail(f"{label} must be a {expected.__name__}")
 
 
-def is_compatible_client_version(value: str) -> bool:
-    match = CLIENT_VERSION_PATTERN.fullmatch(value)
-    if match is None:
-        return False
-    version = tuple(int(part) for part in match.groups())
-    return (0, 23, 1) <= version < (0, 24, 0)
-
-
 def load_catalog() -> list[dict[str, Any]]:
     try:
         catalog = tomllib.loads(CATALOG_PATH.read_text(encoding="utf-8"))
@@ -87,8 +85,8 @@ def load_catalog() -> list[dict[str, Any]]:
         fail(f"samples.toml is invalid TOML: {error}")
 
     compat = catalog.get("compat")
-    if not isinstance(compat, dict) or compat.get("simulo") != ">=0.23.1,<0.24":
-        fail('samples.toml must contain [compat] simulo = ">=0.23.1,<0.24"')
+    if not isinstance(compat, dict) or compat.get("simulo") != ">=0.23.1,<0.25":
+        fail('samples.toml must contain [compat] simulo = ">=0.23.1,<0.25"')
 
     entries = catalog.get("samples", [])
     if not isinstance(entries, list):
@@ -122,23 +120,10 @@ def validate_entry(entry: Any, index: int) -> dict[str, Any]:
     if entry["difficulty"] not in DIFFICULTIES:
         fail(f"samples[{index}].difficulty must be one of: {', '.join(DIFFICULTIES)}")
 
-    if entry["published"]:
-        if entry["runtime_minutes"] <= 0:
-            fail(f"published samples[{index}].runtime_minutes must be greater than zero")
-        if not math.isfinite(entry["est_cost_usd"]) or entry["est_cost_usd"] < 0:
-            fail(f"published samples[{index}].est_cost_usd must be a finite value zero or greater")
-        if not is_compatible_client_version(entry["validated_against"]):
-            fail(
-                f"published samples[{index}].validated_against must be a compatible client version"
-            )
-        if entry["validated_on"] == "unvalidated":
-            fail(f"published samples[{index}].validated_on must be an ISO date")
-        try:
-            dt.date.fromisoformat(entry["validated_on"])
-        except ValueError:
-            raise ValidationError(
-                f"published samples[{index}].validated_on must be an ISO date"
-            ) from None
+    # The generated index prints this for every row, so a zero or negative value
+    # would render as nonsense.
+    if entry["runtime_minutes"] <= 0:
+        fail(f"samples[{index}].runtime_minutes must be greater than zero")
 
     return entry
 
@@ -156,21 +141,28 @@ def read_index_block(readme: str) -> str:
 
 def render_sample(entry: dict[str, Any]) -> str:
     concepts = ", ".join(entry["concepts"])
+    assets = ", ".join(f"`{asset}`" for asset in entry["assets"]) or "none"
+    runtime_unit = "minute" if entry["runtime_minutes"] == 1 else "minutes"
+    hardware = (
+        "L4-class cloud GPU; no local GPU required"
+        if entry["gpu"]
+        else "cloud CPU; no GPU requested"
+    )
     return (
         f"- [{entry['title']}](samples/{entry['slug']}/): {entry['robot']}. "
-        f"{entry['task']} Concepts: {concepts}. Runtime: {entry['runtime_minutes']} minutes. "
-        f"Estimated cost: ${entry['est_cost_usd']:.2f}."
+        f"{entry['task']} Concepts: {concepts}. Assets: {assets}. Hardware: {hardware}. "
+        f"Runtime: about {entry['runtime_minutes']} {runtime_unit}."
     )
 
 
 def render_index(entries: list[dict[str, Any]]) -> str:
-    published = [entry for entry in entries if entry["published"]]
-    if not published:
-        return "\nNo samples are published yet.\n"
+    visible = present_entries(entries)
+    if not visible:
+        return "\nNo sample directories are available in this checkout.\n"
 
     by_goal: dict[str, list[dict[str, Any]]] = defaultdict(list)
     by_difficulty: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for entry in published:
+    for entry in visible:
         by_goal[entry["learning_goal"]].append(entry)
         by_difficulty[entry["difficulty"]].append(entry)
 
@@ -214,14 +206,6 @@ def validate_directories(entries: list[dict[str, Any]]) -> None:
     )
     entries_by_slug = {entry["slug"]: entry for entry in entries}
     catalog_slugs = set(entries_by_slug)
-    unpublished_directories = sorted(
-        slug
-        for slug in directories
-        if slug in entries_by_slug and not entries_by_slug[slug]["published"]
-    )
-    if unpublished_directories:
-        slug = unpublished_directories[0]
-        fail(f"samples/{slug}/ exists but samples.toml marks it published = false")
 
     unknown_directories = sorted(set(directories) - catalog_slugs)
     published_slugs = {slug for slug, entry in entries_by_slug.items() if entry["published"]}
@@ -232,20 +216,136 @@ def validate_directories(entries: list[dict[str, Any]]) -> None:
         fail(f"samples.toml entries missing directories: {', '.join(missing_directories)}")
 
     for slug, directory in directories.items():
-        files = {path.name for path in directory.iterdir()}
-        if files != SAMPLE_FILES:
+        # Importing a sample, which `simulo run` and therefore --discover do, leaves
+        # __pycache__/ behind, and an offline `simulo run` leaves .simulo/. Both are
+        # ignored by git and neither is part of the sample.
+        present = {path.name for path in directory.iterdir()} - IGNORED_SAMPLE_ENTRIES
+        if present != SAMPLE_FILES:
             expected = ", ".join(sorted(SAMPLE_FILES))
-            actual = ", ".join(sorted(files)) or "(empty)"
+            actual = ", ".join(sorted(present)) or "(empty)"
             fail(f"samples/{slug}/ must contain exactly {expected}; found {actual}")
         for file_name in SAMPLE_FILES:
             if not (directory / file_name).is_file():
                 fail(f"samples/{slug}/{file_name} must be a regular file")
 
 
-def validate_readmes(entries: list[dict[str, Any]]) -> None:
+def parse_asset_reference(reference: str, label: str) -> tuple[str, str, bool] | None:
+    """Split a catalog reference into its kind, its name, and whether it omits a publisher.
+
+    Returns None for a reference that names something other than a catalog asset. The
+    assets column carries those too: `simulo/gpu-rl:2026.06` is a job runtime, and it has
+    the same two-segment shape as the publisher-less asset reference
+    `robot/byo-urdf-arm:v1`. The version is what separates them, because the catalog
+    assigns asset versions as v1, v2, and so on while a runtime carries its image's
+    calendar version. Every entry therefore has to name a version for this to decide
+    anything.
+    """
+    body, separator, version = reference.partition(":")
+    if not separator or not version:
+        fail(f"{label} must name a version: {reference}")
+    if not ASSET_VERSION_PATTERN.fullmatch(version):
+        return None
+
+    segments = body.split("/")
+    if len(segments) == 2:
+        kind, name = segments
+        publisher_omitted = True
+    elif len(segments) == 3:
+        _publisher, kind, name = segments
+        publisher_omitted = False
+    else:
+        fail(f"{label} must read [<publisher>/]<kind>/<name>:v<N>: {reference}")
+
+    if kind not in ASSET_KINDS:
+        fail(f"{label} names the kind {kind!r}, which is not one of: {', '.join(ASSET_KINDS)}")
+    return kind, name, publisher_omitted
+
+
+def declared_assets(entries: list[dict[str, Any]]) -> dict[tuple[str, str], list[str]]:
+    """Publisher-less catalog references, each mapped to the samples that name it.
+
+    A reference with a publisher, such as `simulo/robot/cartpole:v1`, names somebody
+    else's catalog and this repository ships nothing for it. A reference without one
+    resolves against whichever organization the reader is signed in as, so the files to
+    publish have to be here.
+    """
+    declared: dict[tuple[str, str], list[str]] = defaultdict(list)
     for entry in entries:
-        if not entry["published"]:
+        for reference in entry["assets"]:
+            parsed = parse_asset_reference(reference, f"samples[{entry['slug']}].assets")
+            if parsed is None:
+                continue
+            kind, name, publisher_omitted = parsed
+            if publisher_omitted:
+                declared[(kind, name)].append(entry["slug"])
+    return declared
+
+
+def present_assets() -> dict[tuple[str, str], Path]:
+    """Every asset package directory in the tree, with its shape checked as it goes."""
+    if not ASSETS_DIR.is_dir():
+        return {}
+
+    packages: dict[tuple[str, str], Path] = {}
+    for kind_path in sorted(ASSETS_DIR.iterdir()):
+        if kind_path.is_file() and kind_path.name == ASSETS_README:
             continue
+        if not kind_path.is_dir():
+            fail(f"assets/{kind_path.name} must be a directory named for an asset kind")
+        if kind_path.name not in ASSET_KINDS:
+            fail(
+                f"assets/{kind_path.name}/ does not name an asset kind; "
+                f"the accepted kinds are: {', '.join(ASSET_KINDS)}"
+            )
+        for asset_path in sorted(kind_path.iterdir()):
+            if not asset_path.is_dir():
+                fail(
+                    f"assets/{kind_path.name}/{asset_path.name} must be a directory: one "
+                    "asset is one directory, published as a whole"
+                )
+            has_entry = any(
+                child.is_file() and child.suffix.lower() in ASSET_ENTRY_SUFFIXES
+                for child in asset_path.iterdir()
+            )
+            if not has_entry:
+                fail(
+                    f"assets/{kind_path.name}/{asset_path.name}/ has no entry file at its "
+                    f"root; the platform starts from one file ending in "
+                    f"{', '.join(ASSET_ENTRY_SUFFIXES)}"
+                )
+            packages[(kind_path.name, asset_path.name)] = asset_path
+    return packages
+
+
+def validate_assets(entries: list[dict[str, Any]]) -> int:
+    """Match the assets tree against the references the catalog declares, both ways."""
+    declared = declared_assets(entries)
+    packages = present_assets()
+
+    missing = sorted(f"{kind}/{name}" for kind, name in set(declared) - set(packages))
+    if missing:
+        fail(
+            "these references name no publisher, so they resolve against the reader's own "
+            "organization and this repository has to ship the files to publish, but they "
+            f"have no assets/<kind>/<name>/ directory: {', '.join(missing)}"
+        )
+
+    orphaned = sorted(f"{kind}/{name}" for kind, name in set(packages) - set(declared))
+    if orphaned:
+        fail(
+            "no sample names these asset directories in its samples.toml assets list, so "
+            f"nothing in this repository tells a reader to publish them: {', '.join(orphaned)}"
+        )
+    return len(packages)
+
+
+def present_entries(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The entries whose sample directory exists in this checkout."""
+    return [entry for entry in entries if (SAMPLES_DIR / entry["slug"]).is_dir()]
+
+
+def validate_readmes(entries: list[dict[str, Any]]) -> None:
+    for entry in present_entries(entries):
         readme_path = SAMPLES_DIR / entry["slug"] / "README.md"
         headings = [
             match.group(1).strip()
@@ -277,12 +377,11 @@ def discover(entries: list[dict[str, Any]]) -> None:
     environment.pop("SIMULO_API_URL", None)
     environment.pop("SIMULO_API_TOKEN", None)
     environment.pop("SIMULO_ENV", None)
+    environment["PYTHONDONTWRITEBYTECODE"] = "1"
     checked = 0
     with tempfile.TemporaryDirectory(prefix="simulo-samples-home-") as home:
         environment["HOME"] = home
-        for entry in entries:
-            if not entry["published"]:
-                continue
+        for entry in present_entries(entries):
             app_path = SAMPLES_DIR / entry["slug"] / "app.py"
             package_dir = app_path.parent / ".simulo"
             try:
@@ -332,6 +431,7 @@ def main() -> int:
     try:
         entries = [validate_entry(entry, index) for index, entry in enumerate(load_catalog())]
         validate_directories(entries)
+        assets = validate_assets(entries)
         if entries:
             validate_readmes(entries)
         if args.write_index:
@@ -339,12 +439,13 @@ def main() -> int:
         validate_index(entries)
         if args.discover:
             discover(entries)
-        elif not any(entry["published"] for entry in entries):
+        elif not present_entries(entries):
             print("Zero samples were checked.")
         else:
-            print(f"Structure validated {sum(entry['published'] for entry in entries)} samples.")
+            noun = "asset" if assets == 1 else "assets"
+            print(f"Structure checked {len(present_entries(entries))} samples and {assets} {noun}.")
     except (OSError, ValidationError) as error:
-        print(f"Validation failed: {error}", file=sys.stderr)
+        print(f"Check failed: {error}", file=sys.stderr)
         return 1
     return 0
 

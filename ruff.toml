@@ -4,6 +4,13 @@ line-length = 100
 [lint]
 select = ["E", "F", "I", "UP", "B"]
 
+# The sample code bodies are kept stable, and they spell their annotations with
+# typing.List and typing.Tuple. Rewriting those would change the code, so the two rules
+# that would demand it are off for the samples only. Docstrings and comments are
+# unaffected.
+[lint.per-file-ignores]
+"samples/*/app.py" = ["UP006", "UP035"]
+
 [format]
 quote-style = "double"
 indent-style = "space"
