@@ -17,4 +17,6 @@ than an interface: there is no API here whose compatibility a semantic version c
 - Humanoid: train a 21-joint biped to stay upright and read the reward climbing toward zero.
 - JetBot: train a two-wheeled robot to drive in a commanded direction.
 - Franka reach: train an arm onto a moving goal with a differential IK controller.
+- Install a PyPI dependency: compute a reward with a third-party library installed into
+  the job's runtime.
 - Samples declare compatibility with Simulo client versions `>=0.23.1,<0.25`.

@@ -84,3 +84,17 @@ difficulty = "intermediate"
 learning_goal = "Train a policy"
 runtime_minutes = 3
 published = true
+
+[[samples]]
+slug = "pip-install-shapely"
+title = "Install a PyPI dependency"
+robot = "JetBot"
+task = "Compute a training reward with a third-party PyPI library installed into the job's runtime."
+concepts = ["Runtime.pip_install", "Runtime.env", "third-party rewards"]
+assets = ["simulo/robot/jetbot:v2", "simulo/gpu-rl:2026.06"]
+jobs = ["train"]
+gpu = true
+difficulty = "intermediate"
+learning_goal = "Bring your own dependency"
+runtime_minutes = 3
+published = true
