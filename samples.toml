@@ -1,2 +1,16 @@
 [compat]
 simulo = ">=0.23.1,<0.25"
+
+[[samples]]
+slug = "hello"
+title = "Hello"
+robot = "No robot"
+task = "Print a few greeting lines from a job and return a small JSON result."
+concepts = ["App and jobs", "job flags", "logs and results"]
+assets = []
+jobs = ["hello"]
+gpu = false
+difficulty = "introductory"
+learning_goal = "Submit a job and read its output"
+runtime_minutes = 1
+published = true

@@ -1,0 +1,29 @@
+# Files `simulo run` leaves out of this sample's package. Gitignore syntax, applied on
+# top of the client's own built-in excludes (.simulo/, __pycache__/, checkpoints/,
+# outputs/, logs/, *.pt, *.onnx, *.mcap, *.mp4, and other data files).
+
+# The README is documentation, not part of the job's source.
+README.md
+
+# Saved models and exported policies live in a Volume, never in the package.
+*.pt
+*.pth
+*.ckpt
+
+# Python virtual environments.
+.venv/
+venv/
+env/
+
+# Local secrets and environment overrides.
+.env
+.env.*
+
+# Editor and OS files.
+.DS_Store
+*.swp
+
+# Data blobs.
+*.npy
+*.npz
+data/

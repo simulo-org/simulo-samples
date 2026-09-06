@@ -42,7 +42,17 @@ Each sample README explains its prerequisites, assets, expected results, and run
 ## Sample index
 
 <!-- BEGIN INDEX -->
-No sample directories are available in this checkout.
+### By learning goal
+
+#### Submit a job and read its output
+
+- [Hello](samples/hello/): No robot. Print a few greeting lines from a job and return a small JSON result. Concepts: App and jobs, job flags, logs and results. Assets: none. Hardware: cloud CPU; no GPU requested. Runtime: about 1 minute.
+
+### By difficulty
+
+#### Introductory
+
+- [Hello](samples/hello/): No robot. Print a few greeting lines from a job and return a small JSON result. Concepts: App and jobs, job flags, logs and results. Assets: none. Hardware: cloud CPU; no GPU requested. Runtime: about 1 minute.
 <!-- END INDEX -->
 
 ## Assets
