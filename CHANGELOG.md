@@ -8,6 +8,15 @@ than an interface: there is no API here whose compatibility a semantic version c
 
 ## [Unreleased]
 
+### Changed
+
+- Widened the declared Simulo client compatibility range to `>=0.23.1,<0.26` to admit
+  `simulo` 0.25.0, published after this repository's samples were validated. No sample was
+  re-run against the new release: `runtime_minutes`, `published`, and each README's "What
+  to expect" prose still describe the run recorded during the original validation window,
+  and this widening is evidence only that every sample still packages and still declares
+  the jobs its row claims against the new release.
+
 ## [2026.09.1] - 2026-09-06
 
 ### Added
@@ -28,4 +37,4 @@ than an interface: there is no API here whose compatibility a semantic version c
   `assets/robot/byo-urdf-arm/` becomes `robot/byo-urdf-arm:v1`.
 - Bring your own F1TENTH-compatible car: publish a USD race car to your organization's
   catalog, then train a drifting policy around a stadium-shaped track and record a lap.
-- Samples declare compatibility with Simulo client versions `>=0.23.1,<0.25`.
+- Samples declare compatibility with Simulo client versions `>=0.23.1,<0.26`.

@@ -17,7 +17,7 @@ joint-space reaching task against a robot whose joint names you chose yourself.
 
 ## Prerequisites
 
-- Python 3.11 or newer and the Simulo client: `python -m pip install "simulo>=0.23.1,<0.25"`.
+- Python 3.11 or newer and the Simulo client: `python -m pip install "simulo>=0.23.1,<0.26"`.
 - A Simulo account, signed in once with `simulo login`.
 - A clone of this repository. The commands below run from its root.
 - The arm published to your organization's catalog. [Run it](#run-it) does that first;

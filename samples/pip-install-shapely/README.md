@@ -20,7 +20,7 @@ deferred alongside `torch`, and why a reward that calls into a CPU library canno
 
 ## Prerequisites
 
-- Python 3.11 or newer and the Simulo client: `python -m pip install "simulo>=0.23.1,<0.25"`.
+- Python 3.11 or newer and the Simulo client: `python -m pip install "simulo>=0.23.1,<0.26"`.
   You do not need `shapely` on your machine; `simulo run` never imports it.
 - A Simulo account, signed in once with `simulo login`.
 - A clone of this repository. The commands below run from its root.

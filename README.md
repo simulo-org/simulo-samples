@@ -7,10 +7,10 @@ that you submit with the Simulo client.
 ## Prerequisites and compatibility
 
 Install Python 3.11 or newer and the Simulo client. Every sample works with Simulo client
-versions `>=0.23.1,<0.25`.
+versions `>=0.23.1,<0.26`.
 
 ```bash
-python -m pip install "simulo>=0.23.1,<0.25"
+python -m pip install "simulo>=0.23.1,<0.26"
 ```
 
 Samples run in the Simulo cloud. Sign in before submitting a job:

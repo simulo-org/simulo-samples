@@ -85,8 +85,8 @@ def load_catalog() -> list[dict[str, Any]]:
         fail(f"samples.toml is invalid TOML: {error}")
 
     compat = catalog.get("compat")
-    if not isinstance(compat, dict) or compat.get("simulo") != ">=0.23.1,<0.25":
-        fail('samples.toml must contain [compat] simulo = ">=0.23.1,<0.25"')
+    if not isinstance(compat, dict) or compat.get("simulo") != ">=0.23.1,<0.26":
+        fail('samples.toml must contain [compat] simulo = ">=0.23.1,<0.26"')
 
     entries = catalog.get("samples", [])
     if not isinstance(entries, list):

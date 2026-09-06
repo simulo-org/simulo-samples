@@ -15,7 +15,7 @@ a fresh goal for each.
 
 ## Prerequisites
 
-- Python 3.11 or newer and the Simulo client: `python -m pip install "simulo>=0.23.1,<0.25"`.
+- Python 3.11 or newer and the Simulo client: `python -m pip install "simulo>=0.23.1,<0.26"`.
 - A Simulo account, signed in once with `simulo login`.
 - A clone of this repository. The commands below run from its root.
 - No GPU on your machine. The job asks for an L4-class GPU in the Simulo cloud and is billed to

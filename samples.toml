@@ -1,5 +1,5 @@
 [compat]
-simulo = ">=0.23.1,<0.25"
+simulo = ">=0.23.1,<0.26"
 
 [[samples]]
 slug = "hello"

@@ -14,7 +14,7 @@ file that trains on a GPU can still be imported on a laptop with no `torch` inst
 
 ## Prerequisites
 
-- Python 3.11 or newer and the Simulo client: `python -m pip install "simulo>=0.23.1,<0.25"`.
+- Python 3.11 or newer and the Simulo client: `python -m pip install "simulo>=0.23.1,<0.26"`.
 - A Simulo account, signed in once with `simulo login`. Without a sign-in, `simulo run` writes a
   package to a `.simulo/` directory next to `app.py` and runs nothing.
 - A clone of this repository. The commands below run from its root.
