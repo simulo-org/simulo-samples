@@ -8,6 +8,8 @@ than an interface: there is no API here whose compatibility a semantic version c
 
 ## [Unreleased]
 
+## [2026.09.1] - 2026-09-06
+
 ### Added
 
 - Repository scaffold and structural checks for the sample catalog.
