@@ -51,6 +51,7 @@ Each sample README explains its prerequisites, assets, expected results, and run
 #### Train a policy
 
 - [Cartpole](samples/cartpole/): Cartpole. Train a PPO policy that balances a pole on a sliding cart. Concepts: Task lifecycle, LearningEnv and RLTrainer, Volumes, ResumableCheckpoint. Assets: `simulo/robot/cartpole:v1`. Hardware: L4-class cloud GPU; no local GPU required. Runtime: about 2 minutes.
+- [Humanoid](samples/humanoid/): Bipedal humanoid. Train a 21-joint biped to stay upright and move forward. Concepts: Locomotion, body-frame observations, termination versus truncation. Assets: `simulo/robot/humanoid:v1`. Hardware: L4-class cloud GPU; no local GPU required. Runtime: about 5 minutes.
 
 #### Evaluate and record a policy
 
@@ -66,6 +67,7 @@ Each sample README explains its prerequisites, assets, expected results, and run
 #### Intermediate
 
 - [Cartpole Eval](samples/cartpole-eval/): Cartpole. Train a policy, score it over several rounds, then play it back and record the rollout. Concepts: Multiple jobs, shared volumes, policy export, RLPlayer, MCAP recording, camera video. Assets: `simulo/robot/cartpole:v1`. Hardware: L4-class cloud GPU; no local GPU required. Runtime: about 2 minutes.
+- [Humanoid](samples/humanoid/): Bipedal humanoid. Train a 21-joint biped to stay upright and move forward. Concepts: Locomotion, body-frame observations, termination versus truncation. Assets: `simulo/robot/humanoid:v1`. Hardware: L4-class cloud GPU; no local GPU required. Runtime: about 5 minutes.
 <!-- END INDEX -->
 
 ## Assets

@@ -42,3 +42,17 @@ difficulty = "intermediate"
 learning_goal = "Evaluate and record a policy"
 runtime_minutes = 2
 published = true
+
+[[samples]]
+slug = "humanoid"
+title = "Humanoid"
+robot = "Bipedal humanoid"
+task = "Train a 21-joint biped to stay upright and move forward."
+concepts = ["Locomotion", "body-frame observations", "termination versus truncation"]
+assets = ["simulo/robot/humanoid:v1"]
+jobs = ["train_humanoid"]
+gpu = true
+difficulty = "intermediate"
+learning_goal = "Train a policy"
+runtime_minutes = 5
+published = true
