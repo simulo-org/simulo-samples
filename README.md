@@ -63,6 +63,10 @@ Each sample README explains its prerequisites, assets, expected results, and run
 
 - [Install a PyPI dependency](samples/pip-install-shapely/): JetBot. Compute a training reward with a third-party PyPI library installed into the job's runtime. Concepts: Runtime.pip_install, Runtime.env, third-party rewards. Assets: `simulo/robot/jetbot:v2`, `simulo/gpu-rl:2026.06`. Hardware: L4-class cloud GPU; no local GPU required. Runtime: about 3 minutes.
 
+#### Bring your own robot
+
+- [Bring your own URDF](samples/byo-urdf-arm/): Your own three-joint arm. Publish a robot you wrote as a URDF to your organization's catalog, then train a reaching policy on it. Concepts: simulo asset publish, organization catalog, URDF robots, joint-space reaching. Assets: `robot/byo-urdf-arm:v1`. Hardware: L4-class cloud GPU; no local GPU required. Runtime: about 2 minutes.
+
 ### By difficulty
 
 #### Introductory
@@ -77,6 +81,7 @@ Each sample README explains its prerequisites, assets, expected results, and run
 - [Humanoid](samples/humanoid/): Bipedal humanoid. Train a 21-joint biped to stay upright and move forward. Concepts: Locomotion, body-frame observations, termination versus truncation. Assets: `simulo/robot/humanoid:v1`. Hardware: L4-class cloud GPU; no local GPU required. Runtime: about 5 minutes.
 - [Franka reach](samples/franka-reach/): Franka Panda arm. Train an arm to put its hand on a moving goal, with a differential IK controller. Concepts: Task-space control, DifferentialIKController, body pose readback. Assets: `simulo/robot/franka-panda:v1`. Hardware: L4-class cloud GPU; no local GPU required. Runtime: about 3 minutes.
 - [Install a PyPI dependency](samples/pip-install-shapely/): JetBot. Compute a training reward with a third-party PyPI library installed into the job's runtime. Concepts: Runtime.pip_install, Runtime.env, third-party rewards. Assets: `simulo/robot/jetbot:v2`, `simulo/gpu-rl:2026.06`. Hardware: L4-class cloud GPU; no local GPU required. Runtime: about 3 minutes.
+- [Bring your own URDF](samples/byo-urdf-arm/): Your own three-joint arm. Publish a robot you wrote as a URDF to your organization's catalog, then train a reaching policy on it. Concepts: simulo asset publish, organization catalog, URDF robots, joint-space reaching. Assets: `robot/byo-urdf-arm:v1`. Hardware: L4-class cloud GPU; no local GPU required. Runtime: about 2 minutes.
 <!-- END INDEX -->
 
 ## Assets

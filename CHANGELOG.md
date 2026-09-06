@@ -19,4 +19,9 @@ than an interface: there is no API here whose compatibility a semantic version c
 - Franka reach: train an arm onto a moving goal with a differential IK controller.
 - Install a PyPI dependency: compute a reward with a third-party library installed into
   the job's runtime.
+- Bring your own URDF: publish a robot you wrote to your organization's catalog, then
+  train a reaching policy on it.
+- A repository-level `assets/` tree holding the files a sample tells the reader to
+  publish to their own catalog. A directory's path is the reference it publishes as:
+  `assets/robot/byo-urdf-arm/` becomes `robot/byo-urdf-arm:v1`.
 - Samples declare compatibility with Simulo client versions `>=0.23.1,<0.25`.
