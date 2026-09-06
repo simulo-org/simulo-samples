@@ -185,8 +185,11 @@ seconds; `rollout` (300 steps) takes about 25 seconds. Both figures are from a l
 
 `used_best_checkpoint` is `false` only when no episode ever finished during training —
 in that case both files are the trainer's final state, and a rerun with a different seed
-is worth trying. If `best_reward` comes back well under 60,000, the run likely diverged
-early; a rerun is worth it there too.
+is worth trying. Otherwise, judge a run by playing it back — run `rollout` and watch the
+recording, or drive the exported policy from a spread of spawns yourself. `best_reward`
+is the training-time mean episode reward, and it tracks how the exported policy actually
+drives only loosely, so do not read it as a pass/fail number; if the recording
+disappoints, rerun `train` — a fresh run usually does better.
 
 Be clear-eyed about what the resulting policy does. Played back deterministically from
 64 random spawn points for one full 5-second episode each, it held the track in 59 of

@@ -700,10 +700,12 @@ def _ppo_overrides() -> dict[str, Any]:
     carries) never runs at submit: the app stays torch-free to discover and package.
 
     Upstream trains this task with ``learning_rate=1e-3``, ``schedule="adaptive"``,
-    ``desired_kl=0.01``, ``entropy_coef=0.005``. Three of the settings below exist to
-    give this trainer's PPO the same effective optimizer, and each closes a measured
-    failure of an earlier fixed-LR version of this sample (256 environments x 500
-    iterations on a local RTX 3090, traced per update):
+    ``desired_kl=0.01``, ``entropy_coef=0.005``. Four of the settings below exist to
+    give this trainer's PPO the same effective optimizer and to keep it stable, and
+    each closes a measured failure of an earlier version of this sample (256
+    environments x 500 iterations on a local RTX 3090, traced per update). Two of
+    them share the name ``kl_threshold`` and are different knobs; the comment beside
+    them in the dict, and their two bullets here, say how:
 
     * ``learning_rate_scheduler``: a KL-adaptive rule at upstream's ``desired_kl`` (halve
       the learning rate at 2x the KL target, raise it 1.5x under half of it). With the
@@ -714,6 +716,16 @@ def _ppo_overrides() -> dict[str, Any]:
       its threshold as a constructor keyword, and this trainer's ``agent_cfg`` cannot
       carry a nested keyword-arguments section for it, so it is bound with
       ``functools.partial``.
+    * ``kl_threshold`` (the agent's, not the scheduler's): skrl's early-stop for a
+      single PPO update — a ceiling rather than a target. Each learning epoch stops
+      taking further gradient steps as soon as a mini-batch's approximate KL against
+      the rollout policy exceeds 0.02, twice the scheduler's own target, so one
+      oversized step is not compounded by more steps in the same epoch. The
+      scheduler's own reaction to an oversized update — collapsing the learning rate
+      — comes too late once the policy has already moved that far; this guard
+      measurably cut how often local testing ended in a non-finite update. A run can
+      still turn out poorly, which is what the best-checkpoint export further down
+      is for.
     * ``rewards_shaper``: scale the reward the *agent* sees by 0.01. This task's episode
       return is a few tens of thousands (upstream's own reward weights), which the
       trainer's value function cannot fit without this scaling — its clipped value loss
@@ -728,7 +740,13 @@ def _ppo_overrides() -> dict[str, Any]:
 
     return {
         "learning_rate": 1e-3,
+        # Two different knobs share the name ``kl_threshold``. The scheduler's is a
+        # TARGET: the adaptive learning rate rises or falls to keep each update's
+        # policy shift near 0.01. The agent's is a CEILING: an update stops taking
+        # steps once its shift has already exceeded 0.02. They are deliberately
+        # about two to one, so the stop fires only on outliers, not every round.
         "learning_rate_scheduler": functools.partial(KLAdaptiveLR, kl_threshold=0.01),
+        "kl_threshold": 0.02,
         "entropy_loss_scale": 0.005,
         "rewards_shaper": lambda rewards, timestep, timesteps: rewards * 0.01,
         "clip_predicted_values": False,
@@ -752,10 +770,13 @@ def train(num_envs: int = 256, max_iterations: int = 500) -> dict[str, Any]:
             own default for this task.
         max_iterations: Number of PPO policy-update iterations. Reward on this task can
             climb for a while and then diverge late in a run — see ``README.md``'s "What
-            to expect" for measured numbers. 500 is kept as the default
+            to expect" for measured numbers; the KL guard in ``_ppo_overrides`` cuts how
+            often that happens without eliminating it. 500 is kept as the default
             anyway, because this job exports the tracked best-so-far checkpoint rather
-            than the trainer's final state (see below), so a late divergence never
-            reaches the returned artifacts, though an early one exports a weaker policy.
+            than the trainer's final state (see below), so a divergence never reaches
+            the returned artifacts, though an early one can still export a weaker
+            policy — ``rollout``'s recording is the way to check what a given run
+            actually produced, not ``best_reward`` in the result.
 
     Returns:
         A JSON-serialisable dict: the saved ``checkpoint`` path, the exported ``policy``
