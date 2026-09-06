@@ -70,3 +70,17 @@ difficulty = "introductory"
 learning_goal = "Train a policy"
 runtime_minutes = 5
 published = true
+
+[[samples]]
+slug = "franka-reach"
+title = "Franka reach"
+robot = "Franka Panda arm"
+task = "Train an arm to put its hand on a moving goal, with a differential IK controller."
+concepts = ["Task-space control", "DifferentialIKController", "body pose readback"]
+assets = ["simulo/robot/franka-panda:v1"]
+jobs = ["train_franka_reach"]
+gpu = true
+difficulty = "intermediate"
+learning_goal = "Train a policy"
+runtime_minutes = 3
+published = true

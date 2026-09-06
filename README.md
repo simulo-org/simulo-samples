@@ -53,6 +53,7 @@ Each sample README explains its prerequisites, assets, expected results, and run
 - [Cartpole](samples/cartpole/): Cartpole. Train a PPO policy that balances a pole on a sliding cart. Concepts: Task lifecycle, LearningEnv and RLTrainer, Volumes, ResumableCheckpoint. Assets: `simulo/robot/cartpole:v1`. Hardware: L4-class cloud GPU; no local GPU required. Runtime: about 2 minutes.
 - [Humanoid](samples/humanoid/): Bipedal humanoid. Train a 21-joint biped to stay upright and move forward. Concepts: Locomotion, body-frame observations, termination versus truncation. Assets: `simulo/robot/humanoid:v1`. Hardware: L4-class cloud GPU; no local GPU required. Runtime: about 5 minutes.
 - [JetBot](samples/jetbot/): JetBot. Train a two-wheeled robot to drive in a commanded direction. Concepts: Differential drive, randomised commands, network-fetched asset. Assets: `simulo/robot/jetbot:v2`. Hardware: L4-class cloud GPU; no local GPU required. Runtime: about 5 minutes.
+- [Franka reach](samples/franka-reach/): Franka Panda arm. Train an arm to put its hand on a moving goal, with a differential IK controller. Concepts: Task-space control, DifferentialIKController, body pose readback. Assets: `simulo/robot/franka-panda:v1`. Hardware: L4-class cloud GPU; no local GPU required. Runtime: about 3 minutes.
 
 #### Evaluate and record a policy
 
@@ -70,6 +71,7 @@ Each sample README explains its prerequisites, assets, expected results, and run
 
 - [Cartpole Eval](samples/cartpole-eval/): Cartpole. Train a policy, score it over several rounds, then play it back and record the rollout. Concepts: Multiple jobs, shared volumes, policy export, RLPlayer, MCAP recording, camera video. Assets: `simulo/robot/cartpole:v1`. Hardware: L4-class cloud GPU; no local GPU required. Runtime: about 2 minutes.
 - [Humanoid](samples/humanoid/): Bipedal humanoid. Train a 21-joint biped to stay upright and move forward. Concepts: Locomotion, body-frame observations, termination versus truncation. Assets: `simulo/robot/humanoid:v1`. Hardware: L4-class cloud GPU; no local GPU required. Runtime: about 5 minutes.
+- [Franka reach](samples/franka-reach/): Franka Panda arm. Train an arm to put its hand on a moving goal, with a differential IK controller. Concepts: Task-space control, DifferentialIKController, body pose readback. Assets: `simulo/robot/franka-panda:v1`. Hardware: L4-class cloud GPU; no local GPU required. Runtime: about 3 minutes.
 <!-- END INDEX -->
 
 ## Assets
