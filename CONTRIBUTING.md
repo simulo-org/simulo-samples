@@ -28,6 +28,4 @@ readers can find the same information in every sample.
 ## Extending it
 
 ## Assets, licensing, attribution
-
-## Validated against
 ```
