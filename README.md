@@ -52,6 +52,7 @@ Each sample README explains its prerequisites, assets, expected results, and run
 
 - [Cartpole](samples/cartpole/): Cartpole. Train a PPO policy that balances a pole on a sliding cart. Concepts: Task lifecycle, LearningEnv and RLTrainer, Volumes, ResumableCheckpoint. Assets: `simulo/robot/cartpole:v1`. Hardware: L4-class cloud GPU; no local GPU required. Runtime: about 2 minutes.
 - [Humanoid](samples/humanoid/): Bipedal humanoid. Train a 21-joint biped to stay upright and move forward. Concepts: Locomotion, body-frame observations, termination versus truncation. Assets: `simulo/robot/humanoid:v1`. Hardware: L4-class cloud GPU; no local GPU required. Runtime: about 5 minutes.
+- [JetBot](samples/jetbot/): JetBot. Train a two-wheeled robot to drive in a commanded direction. Concepts: Differential drive, randomised commands, network-fetched asset. Assets: `simulo/robot/jetbot:v2`. Hardware: L4-class cloud GPU; no local GPU required. Runtime: about 5 minutes.
 
 #### Evaluate and record a policy
 
@@ -63,6 +64,7 @@ Each sample README explains its prerequisites, assets, expected results, and run
 
 - [Hello](samples/hello/): No robot. Print a few greeting lines from a job and return a small JSON result. Concepts: App and jobs, job flags, logs and results. Assets: none. Hardware: cloud CPU; no GPU requested. Runtime: about 1 minute.
 - [Cartpole](samples/cartpole/): Cartpole. Train a PPO policy that balances a pole on a sliding cart. Concepts: Task lifecycle, LearningEnv and RLTrainer, Volumes, ResumableCheckpoint. Assets: `simulo/robot/cartpole:v1`. Hardware: L4-class cloud GPU; no local GPU required. Runtime: about 2 minutes.
+- [JetBot](samples/jetbot/): JetBot. Train a two-wheeled robot to drive in a commanded direction. Concepts: Differential drive, randomised commands, network-fetched asset. Assets: `simulo/robot/jetbot:v2`. Hardware: L4-class cloud GPU; no local GPU required. Runtime: about 5 minutes.
 
 #### Intermediate
 

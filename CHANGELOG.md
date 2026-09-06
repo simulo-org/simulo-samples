@@ -15,4 +15,5 @@ than an interface: there is no API here whose compatibility a semantic version c
 - Cartpole: train a balancing policy and read the reward trend and saved checkpoint.
 - Cartpole Eval: train, score over several rounds, then play the policy back and record it.
 - Humanoid: train a 21-joint biped to stay upright and read the reward climbing toward zero.
+- JetBot: train a two-wheeled robot to drive in a commanded direction.
 - Samples declare compatibility with Simulo client versions `>=0.23.1,<0.25`.

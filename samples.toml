@@ -56,3 +56,17 @@ difficulty = "intermediate"
 learning_goal = "Train a policy"
 runtime_minutes = 5
 published = true
+
+[[samples]]
+slug = "jetbot"
+title = "JetBot"
+robot = "JetBot"
+task = "Train a two-wheeled robot to drive in a commanded direction."
+concepts = ["Differential drive", "randomised commands", "network-fetched asset"]
+assets = ["simulo/robot/jetbot:v2"]
+jobs = ["train_jetbot"]
+gpu = true
+difficulty = "introductory"
+learning_goal = "Train a policy"
+runtime_minutes = 5
+published = true
