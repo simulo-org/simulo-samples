@@ -28,3 +28,17 @@ difficulty = "introductory"
 learning_goal = "Train a policy"
 runtime_minutes = 2
 published = true
+
+[[samples]]
+slug = "cartpole-eval"
+title = "Cartpole Eval"
+robot = "Cartpole"
+task = "Train a policy, score it over several rounds, then play it back and record the rollout."
+concepts = ["Multiple jobs", "shared volumes", "policy export", "RLPlayer", "MCAP recording", "camera video"]
+assets = ["simulo/robot/cartpole:v1"]
+jobs = ["train", "evaluate", "rollout"]
+gpu = true
+difficulty = "intermediate"
+learning_goal = "Evaluate and record a policy"
+runtime_minutes = 2
+published = true

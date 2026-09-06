@@ -52,12 +52,20 @@ Each sample README explains its prerequisites, assets, expected results, and run
 
 - [Cartpole](samples/cartpole/): Cartpole. Train a PPO policy that balances a pole on a sliding cart. Concepts: Task lifecycle, LearningEnv and RLTrainer, Volumes, ResumableCheckpoint. Assets: `simulo/robot/cartpole:v1`. Hardware: L4-class cloud GPU; no local GPU required. Runtime: about 2 minutes.
 
+#### Evaluate and record a policy
+
+- [Cartpole Eval](samples/cartpole-eval/): Cartpole. Train a policy, score it over several rounds, then play it back and record the rollout. Concepts: Multiple jobs, shared volumes, policy export, RLPlayer, MCAP recording, camera video. Assets: `simulo/robot/cartpole:v1`. Hardware: L4-class cloud GPU; no local GPU required. Runtime: about 2 minutes.
+
 ### By difficulty
 
 #### Introductory
 
 - [Hello](samples/hello/): No robot. Print a few greeting lines from a job and return a small JSON result. Concepts: App and jobs, job flags, logs and results. Assets: none. Hardware: cloud CPU; no GPU requested. Runtime: about 1 minute.
 - [Cartpole](samples/cartpole/): Cartpole. Train a PPO policy that balances a pole on a sliding cart. Concepts: Task lifecycle, LearningEnv and RLTrainer, Volumes, ResumableCheckpoint. Assets: `simulo/robot/cartpole:v1`. Hardware: L4-class cloud GPU; no local GPU required. Runtime: about 2 minutes.
+
+#### Intermediate
+
+- [Cartpole Eval](samples/cartpole-eval/): Cartpole. Train a policy, score it over several rounds, then play it back and record the rollout. Concepts: Multiple jobs, shared volumes, policy export, RLPlayer, MCAP recording, camera video. Assets: `simulo/robot/cartpole:v1`. Hardware: L4-class cloud GPU; no local GPU required. Runtime: about 2 minutes.
 <!-- END INDEX -->
 
 ## Assets
