@@ -12,11 +12,13 @@ job's parameters become command-line flags, and where a job's printed output and
 
 ## Prerequisites
 
-- Python 3.11 or newer and the Simulo client: `python -m pip install "simulo>=0.23.1,<0.26"`.
+- Python 3.11 or newer and the Simulo client: `python -m pip install "simulo>=0.26.0,<0.27"`.
 - A Simulo account, signed in once with `simulo login`. Without a sign-in, `simulo run` writes a
   package to a `.simulo/` directory next to `app.py` and runs nothing.
 - A clone of this repository. The commands below run from its root.
-- No local GPU is needed, and the job does not request a cloud GPU.
+- No local GPU is needed, and the job does not request a cloud GPU. That describes the
+  job's own request only, not queue priority: it still waits on the same shared GPU
+  fleet every sample in this repository runs on.
 
 ## Assets
 

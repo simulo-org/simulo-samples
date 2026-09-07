@@ -13,11 +13,12 @@ time).
 
 ## Prerequisites
 
-- Python 3.11 or newer and the Simulo client: `python -m pip install "simulo>=0.23.1,<0.26"`.
+- Python 3.11 or newer and the Simulo client: `python -m pip install "simulo>=0.26.0,<0.27"`.
 - A Simulo account, signed in once with `simulo login`.
 - A clone of this repository. The commands below run from its root.
-- No GPU on your machine. The job asks for an L4-class GPU in the Simulo cloud and is billed to
-  your account.
+- No GPU on your machine. The job asks for a Tier 1 GPU (T4) in the Simulo cloud and is
+  billed to your account. Hardware describes the job's own request, not queue priority:
+  it waits on the same shared GPU fleet as every other job.
 
 ## Assets
 

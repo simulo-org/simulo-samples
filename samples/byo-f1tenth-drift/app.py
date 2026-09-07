@@ -759,7 +759,8 @@ def _ppo_overrides() -> dict[str, Any]:
 # checkpoints (every 50 iterations) and resume defaults to "auto" — see cartpole's/
 # jetbot's identical comment on their own jobs.
 @app.job(
-    gpu="L4",
+    # Tier 1: T4 GPU, 16 GB VRAM. Run `simulo systems` for the full four-tier catalog.
+    system=simulo.SystemType.TIER_1,
     timeout=8 * 60 * 60,
     retries=2,
     callbacks=[simulo.callbacks.ResumableCheckpoint(every=50)],
@@ -857,7 +858,8 @@ def train(num_envs: int = 256, max_iterations: int = 500) -> dict[str, Any]:
     }
 
 
-@app.job(gpu="L4", timeout=1 * 60 * 60)
+# Tier 1: T4, 16 GB VRAM. See `simulo systems`.
+@app.job(system=simulo.SystemType.TIER_1, timeout=1 * 60 * 60)
 def rollout(num_steps: int = 300) -> dict[str, Any]:
     """Play the exported policy with no trainer, and record the rollout to MCAP.
 

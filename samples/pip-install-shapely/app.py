@@ -304,7 +304,8 @@ class ShapelyZoneTask(simulo.Task):
 # resume defaults to "auto": a retried or preempted run picks up from the latest
 # checkpoint instead of starting over.
 @app.job(
-    gpu="L4",
+    # Tier 1: T4 GPU, 16 GB VRAM. Run `simulo systems` for the full four-tier catalog.
+    system=simulo.SystemType.TIER_1,
     timeout=8 * 60 * 60,
     retries=2,
     callbacks=[simulo.callbacks.ResumableCheckpoint(every=50)],

@@ -319,7 +319,8 @@ class FrankaReachTask(simulo.Task):
 
 
 @app.job(
-    gpu="L4",
+    # Tier 1: T4 GPU, 16 GB VRAM. Run `simulo systems` for the full four-tier catalog.
+    system=simulo.SystemType.TIER_1,
     timeout=4 * 60 * 60,
     retries=2,
     callbacks=[simulo.callbacks.ResumableCheckpoint(every=50)],

@@ -18,11 +18,12 @@ video.
 
 ## Prerequisites
 
-- Python 3.11 or newer and the Simulo client: `python -m pip install "simulo>=0.23.1,<0.26"`.
+- Python 3.11 or newer and the Simulo client: `python -m pip install "simulo>=0.26.0,<0.27"`.
 - A Simulo account, signed in once with `simulo login`.
 - A clone of this repository. The commands below run from its root.
-- No GPU on your machine. All three jobs ask for an L4-class GPU in the Simulo cloud and are
-  billed to your account.
+- No GPU on your machine. All three jobs ask for a Tier 1 GPU (T4) in the Simulo cloud and
+  are billed to your account. Hardware describes the job's own request, not queue
+  priority: it waits on the same shared GPU fleet as every other job.
 - To open the recording: Foxglove or Lichtblick, both free desktop applications, or the `mcap`
   Python package, which the Simulo client already depends on.
 

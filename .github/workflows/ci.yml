@@ -83,7 +83,7 @@ jobs:
           python -m venv .venv
           . .venv/bin/activate
           python -m pip install --upgrade pip
-          python -m pip install "simulo>=0.23.1,<0.26"
+          python -m pip install "simulo>=0.26.0,<0.27"
       - name: Package declared jobs
         run: |
           . .venv/bin/activate

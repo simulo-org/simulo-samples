@@ -67,7 +67,7 @@ ASSETS_README = "README.md"
 # value is checked against this constant in load_catalog(), and discover() checks the
 # installed client's own version against it too. ci.yml's discovery matrix and every
 # sample README carry their own copies; nothing keeps those in step with this one.
-COMPAT_RANGE = ">=0.23.1,<0.26"
+COMPAT_RANGE = ">=0.26.0,<0.27"
 VERSION_RANGE_PATTERN = re.compile(r"\A>=(?P<min>\d+(?:\.\d+)*),<(?P<max>\d+(?:\.\d+)*)\Z")
 
 
@@ -150,9 +150,9 @@ def render_sample(entry: dict[str, Any]) -> str:
     assets = ", ".join(f"`{asset}`" for asset in entry["assets"]) or "none"
     runtime_unit = "minute" if entry["runtime_minutes"] == 1 else "minutes"
     hardware = (
-        "L4-class cloud GPU; no local GPU required"
+        "Tier 1 GPU job (T4, 16 GB VRAM); no local GPU required"
         if entry["gpu"]
-        else "cloud CPU; no GPU requested"
+        else "no GPU requested by this job; it queues on the same shared GPU fleet as GPU jobs"
     )
     return (
         f"- [{entry['title']}](samples/{entry['slug']}/): {entry['robot']}. "

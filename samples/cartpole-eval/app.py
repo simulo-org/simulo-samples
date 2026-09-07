@@ -350,7 +350,9 @@ def _make_env(num_envs: int, *, camera: bool = False) -> Any:
 
 
 @app.job(
-    gpu="L4",
+    # Tier 1: T4 GPU, 16 GB VRAM. Run `simulo systems` for the full four-tier catalog.
+    # (Same tier for every job in this file: train/evaluate/rollout.)
+    system=simulo.SystemType.TIER_1,
     timeout=8 * 60 * 60,
     retries=2,
     callbacks=[simulo.callbacks.ResumableCheckpoint(every=50)],
@@ -379,7 +381,7 @@ def train(num_envs: int = 512, max_iterations: int = 20) -> dict[str, Any]:
     return {"checkpoint": checkpoint, "policy": policy_path, "num_envs": num_envs, **stats}
 
 
-@app.job(gpu="L4", timeout=2 * 60 * 60)
+@app.job(system=simulo.SystemType.TIER_1, timeout=2 * 60 * 60)
 def evaluate(num_episodes: int = 10, num_rounds: int = 5) -> dict[str, Any]:
     """Evaluate the saved checkpoint over several rounds and aggregate them with numpy.
 
@@ -435,7 +437,7 @@ def evaluate(num_episodes: int = 10, num_rounds: int = 5) -> dict[str, Any]:
     return {"report": report_path, **report}
 
 
-@app.job(gpu="L4", timeout=1 * 60 * 60)
+@app.job(system=simulo.SystemType.TIER_1, timeout=1 * 60 * 60)
 def rollout(num_steps: int = 200) -> dict[str, Any]:
     """Play the exported TorchScript policy with no trainer and record it to MCAP.
 

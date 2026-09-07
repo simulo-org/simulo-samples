@@ -25,6 +25,29 @@ than an interface: there is no API here whose compatibility a semantic version c
   to expect" prose still describe the run recorded during the original validation window,
   and this widening is evidence only that every sample still packages and still declares
   the jobs its row claims against the new release.
+- Raised the declared Simulo client compatibility range's floor, to `>=0.26.0,<0.27`, to
+  require `simulo` 0.26.0. This is a floor raise, not a widening: `simulo.SystemType`,
+  which every sample now imports (see Fixed, below), does not exist before `simulo`
+  0.26.0, so any version the prior range admitted below it would fail with
+  `AttributeError` at import time. Same evidence boundary as the prior change:
+  `runtime_minutes`, `published`, and each README's "What to expect" prose are unchanged,
+  and this is evidence only that every sample still packages and still declares the jobs
+  its row claims against the new release.
+
+### Fixed
+
+- Migrated every GPU-requesting sample off the removed `@app.job(gpu=...)` parameter to
+  `system=simulo.SystemType.TIER_1`. `simulo` 0.26.0 removed `gpu=` outright, so every
+  sample would have raised `TypeError` at import time under the compatibility range
+  raise above without this change.
+- Corrected the generated "Hardware" claim from an L4-class GPU to a Tier 1 GPU (T4, 16 GB
+  VRAM): the tier every sample's job actually requests, and the tier this repository's
+  samples were actually validated against. Nothing in this repository requests or
+  provisions an L4.
+- Reworded the "Hardware" field and nearby Quick start / Prerequisites prose so "no GPU
+  requested" no longer reads as "starts sooner": every sample, GPU-requesting or not,
+  queues on the same single, shared GPU fleet, and the Hardware field
+  describes only a job's own resource request, not queue priority.
 
 ## [2026.09.1] - 2026-09-06
 
