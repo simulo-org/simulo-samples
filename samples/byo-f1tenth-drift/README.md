@@ -154,20 +154,16 @@ simulo cancel <job-id>
 Publishing is a one-time step; every run after that resolves `robot/f1tenth:v1` from the
 catalog and uploads nothing.
 
-`train`'s reward starts strongly negative (around -4,900 at the first update) and climbs
-quickly to about 50,000 by iteration 50 and 65,000-78,000 between iterations 100 and
-300 — real, non-degenerate learning. **Training on this task still diverges to `NaN`
-late in a run in some attempts** (an intermittent minority, not most). That is exactly
-why `train` loads the trainer's tracked best-so-far checkpoint before saving and
-exporting, rather than trusting the final state, and why it independently reloads the
-exported policy and verifies every value is finite before returning success — a run that
-does diverge still hands back a clean, usable checkpoint from whatever iteration was
-best, though one that diverges early exports a correspondingly weaker policy (an
-iteration-50 checkpoint from one such run held the track in 40 of 64 evaluation
-environments and lapped in 24 of them, versus the numbers below for a run that trained
-further). A `train` run at the defaults (256 envs, 500 iterations) takes about 135
-seconds; `rollout` (300 steps) takes about 25 seconds. Both figures are from a local RTX
-3090; wall-clock in the cloud will differ with GPU class and load.
+`train`'s reward starts strongly negative and climbs quickly from there — real,
+non-degenerate learning. `best_reward` for a good run lands around 90,000 at the
+defaults (256 envs, 500 iterations), roughly 75,000 to 93,000 across runs, in roughly
+3.5-4 minutes of job time; wall-clock will vary with GPU class and load. Training is
+stochastic: most runs produce a good policy, and occasionally one diverges to `NaN`
+partway through. `train` always loads the trainer's tracked best-so-far checkpoint
+before saving and exporting, rather than trusting the final state, and independently
+verifies the exported policy is finite before returning success, so you get a usable
+result either way — though a run that diverges early exports a correspondingly weaker
+policy.
 
 `train`'s result names both saved files and whether the best checkpoint was used:
 
@@ -179,7 +175,7 @@ seconds; `rollout` (300 steps) takes about 25 seconds. Both figures are from a l
   "num_envs": 256,
   "robot_asset": "robot/f1tenth:v1",
   "iterations": 500,
-  "best_reward": 71313.2
+  "best_reward": 90189.89965820312
 }
 ```
 
@@ -191,15 +187,14 @@ is the training-time mean episode reward, and it tracks how the exported policy 
 drives only loosely, so do not read it as a pass/fail number; if the recording
 disappoints, rerun `train` — a fresh run usually does better.
 
-Be clear-eyed about what the resulting policy does. Played back deterministically from
-64 random spawn points for one full 5-second episode each, it held the track in 59 of
-those 64, and 57 of those 59 completed at least one full lap (mean 1.55 laps, at close
-to the 3 m/s cruise target); the 5 that left the corridor did so within 9 steps of a
-spawn that pointed them straight at the wall. Its mean slip angle is below the 0.25 rad
-band the side-slip reward pays for, so at these weights it drives as a fast racing-line
-follower more than a dramatic drifter — `rollout`'s recording is the way to see exactly
-what your own run produced, and reshaping the reward toward more slip is one of the
-things to try under "Extending it" below.
+Be clear-eyed about what the resulting policy does. Played back from a spread of random
+starting positions, it holds the track from the large majority of them. The reward
+weights that shape the driving style are unchanged by this fix: side-slip is only
+rewarded inside a real drift band, and the counter-steer bonus stays off by default (see
+"Files and APIs" above), so the policy tends to drive as a fast racing-line follower more
+than a dramatic drifter — `rollout`'s recording is the way to see exactly what your own
+run produced, and reshaping the reward toward more slip is one of the things to try under
+"Extending it" below.
 
 `rollout` plays one full 5 s episode and returns playback statistics, including
 `messages_written` and `recording_complete`, alongside the recording path:
@@ -208,7 +203,7 @@ things to try under "Extending it" below.
 {
   "policy": "<checkpoints-volume-path>/f1tenth_drift_policy.pt",
   "mcap": "<reports-volume-path>/rollout.mcap",
-  "messages_written": 2317,
+  "messages_written": 2335,
   "recording_complete": true
 }
 ```

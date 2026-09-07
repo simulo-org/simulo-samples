@@ -308,15 +308,17 @@ def _compute_rewards(
     # progress: the angular rate of the car's POSITION about the track centre (rad/s),
     # i.e. real motion around the loop. Upstream's own progress term uses the root yaw
     # rate as a cheap proxy for this; ported faithfully, that proxy paid the car for
-    # spinning inside the corridor instead of lapping it — measured: every surviving
-    # episode swept 1,700-2,250 degrees of heading in 5s while its position covered
-    # under one lap, and only 20 of 58 survivors completed a lap. With this term, 57
-    # of 59 did (mean 1.55 laps in 5s). The two terms are NOT equal pointwise (the
-    # yaw-rate proxy is 3.75 rad/s in the turns and 0 on the straights, this term is
-    # 1.87 and 3.74 respectively) but both integrate to exactly 2*pi per lap, so their
-    # time-mean over a lap matches (2.289 vs 2.291 rad/s, measured) — the weight and
-    # the reward scale are unchanged for a car that actually laps; only spinning in
-    # place stops paying.
+    # spinning inside the corridor instead of lapping it. In an early comparison of the
+    # two formulations (a design measurement for this term's shape, from before this
+    # file's KL-guard fix and not comparable to the training-quality figures in
+    # README.md), every surviving episode under the yaw-rate proxy swept 1,700-2,250
+    # degrees of heading in 5s while its position covered under one lap, and only a
+    # minority of survivors completed a lap; under this position-based term, nearly all
+    # did. The two terms are NOT equal pointwise (the yaw-rate proxy is 3.75 rad/s in
+    # the turns and 0 on the straights, this term is 1.87 and 3.74 respectively) but
+    # both integrate to exactly 2*pi per lap, so their time-mean over a lap matches
+    # (2.289 vs 2.291 rad/s) — the weight and the reward scale are unchanged for a car
+    # that actually laps; only spinning in place stops paying.
     progress = (pos_x * root_lin_vel[:, 1] - pos_y * root_lin_vel[:, 0]) / (
         pos_x * pos_x + pos_y * pos_y + 1.0e-3
     )
