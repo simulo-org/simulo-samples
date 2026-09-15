@@ -11,35 +11,20 @@ than an interface: there is no API here whose compatibility a semantic version c
 ### Added
 
 - `simulo install samples` as a documented way to get this repository, alongside
-  `git clone`, on Simulo client `0.25.0` or newer.
+  `git clone`, with options to choose a destination and a Git branch, tag, or commit.
 
 ### Changed
 
-- `tools/validate_samples.py --discover` now reads the installed client's own reported
-  version (`simulo --version`) and fails if it falls outside the declared compatibility
-  range, instead of only proving that some unspecified client packages every job. A
-  green `discovery` run is now evidence about which release it actually exercised.
-- Widened the declared Simulo client compatibility range to `>=0.23.1,<0.26` to admit
-  `simulo` 0.25.0, published after this repository's samples were validated. No sample was
-  re-run against the new release: `runtime_minutes`, `published`, and each README's "What
-  to expect" prose still describe the run recorded during the original validation window,
-  and this widening is evidence only that every sample still packages and still declares
-  the jobs its row claims against the new release.
-- Raised the declared Simulo client compatibility range's floor, to `>=0.26.0,<0.27`, to
-  require `simulo` 0.26.0. This is a floor raise, not a widening: `simulo.SystemType`,
-  which every sample now imports (see Fixed, below), does not exist before `simulo`
-  0.26.0, so any version the prior range admitted below it would fail with
-  `AttributeError` at import time. Same evidence boundary as the prior change:
-  `runtime_minutes`, `published`, and each README's "What to expect" prose are unchanged,
-  and this is evidence only that every sample still packages and still declares the jobs
-  its row claims against the new release.
+- Removed the declared Simulo client compatibility range. The samples are written for the
+  latest client, installation upgrades to it, and a scheduled weekly check packages every
+  declared job with the latest published client. The runtimes and results each sample
+  describes were recorded with an earlier client.
 
 ### Fixed
 
 - Migrated every GPU-requesting sample off the removed `@app.job(gpu=...)` parameter to
-  `system=simulo.SystemType.TIER_1`. `simulo` 0.26.0 removed `gpu=` outright, so every
-  sample would have raised `TypeError` at import time under the compatibility range
-  raise above without this change.
+  `system=simulo.SystemType.TIER_1`. The current client no longer accepts `gpu=`, so the
+  old form would raise `TypeError` at import time.
 - Corrected the generated "Hardware" claim from an L4-class GPU to a Tier 1 GPU (T4, 16 GB
   VRAM): the tier every sample's job actually requests, and the tier this repository's
   samples were actually validated against. Nothing in this repository requests or
@@ -69,4 +54,4 @@ than an interface: there is no API here whose compatibility a semantic version c
   `assets/robot/byo-urdf-arm/` becomes `robot/byo-urdf-arm:v1`.
 - Bring your own F1TENTH-compatible car: publish a USD race car to your organization's
   catalog, then train a drifting policy around a stadium-shaped track and record a lap.
-- Samples declare compatibility with Simulo client versions `>=0.23.1,<0.26`.
+- Samples declare compatibility with Simulo client versions `>=0.23.1,<0.25`.

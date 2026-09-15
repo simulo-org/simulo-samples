@@ -6,11 +6,12 @@ that you submit with the Simulo client.
 
 ## Prerequisites and compatibility
 
-Install Python 3.11 or newer and the Simulo client. Every sample works with Simulo client
-versions `>=0.26.0,<0.27`.
+Install Python 3.11 or newer and the Simulo client. These samples are written for the latest
+Simulo client. If a sample does not work with the latest client, open an issue and include
+the output of `simulo --version`.
 
 ```bash
-python -m pip install "simulo>=0.26.0,<0.27"
+python -m pip install --upgrade simulo
 ```
 
 Samples run in the Simulo cloud. Sign in before submitting a job:
@@ -28,12 +29,23 @@ git clone https://github.com/simulo-org/simulo-samples.git
 cd simulo-samples
 ```
 
-On Simulo client `0.25.0` or newer, `simulo install samples` does the same clone for you:
+`simulo install samples` does the same clone for you:
 
 ```bash
 simulo install samples
 cd simulo-samples
 ```
+
+Choose a different destination:
+
+```bash
+simulo install samples --directory robotics-examples
+```
+
+The destination must not exist, and its parent directory must already exist. The destination
+appears only after the clone and checkout succeed. Add `--ref` with a branch, tag, or full
+commit ID to check out that revision instead of the default branch. A checkout made with
+`--ref` is detached at the selected commit.
 
 ## Quick start
 
@@ -115,6 +127,8 @@ Pull the latest sample catalog and files from your existing clone:
 ```bash
 git pull
 ```
+
+If you installed with `--ref`, the checkout is detached; run `git switch main` first.
 
 ## Support
 

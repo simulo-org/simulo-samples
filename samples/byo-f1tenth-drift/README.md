@@ -26,7 +26,7 @@ rather than written for it.
 
 ## Prerequisites
 
-- Python 3.11 or newer and the Simulo client: `python -m pip install "simulo>=0.26.0,<0.27"`.
+- Python 3.11 or newer and the Simulo client: `python -m pip install --upgrade simulo`.
 - A Simulo account, signed in once with `simulo login`.
 - A clone of this repository. The commands below run from its root.
 - The car published to your organization's catalog. [Run it](#run-it) does that first;
