@@ -39,8 +39,18 @@ Sign in once with ``simulo login``, then::
 
 Use ``--max-iterations 2`` for a quick check that the job launches. What bounds
 ``--num-envs`` is memory, and the bound is per app rather than per tier -- the other
-samples ship much larger defaults. 16 is the figure measured for this app; asking for
-more memory than the job is given ends the run rather than slowing it down.
+samples ship much larger defaults.
+
+16 is the figure measured for this app **with the live view on** (``--viewstream``).
+The live view is not free: it takes a large share of the job's memory budget before
+your environments get any, and that share does not shrink as you add environments.
+Turn it off and the same app on the same tier goes much further -- 512 and 4096
+environments both completed in our measurements.
+
+So size ``--num-envs`` for the way you are actually running. Watching a job live and
+training it at scale are different budgets, and the number that works for one will not
+be the number that works for the other. Asking for more memory than the job is given
+ends the run rather than slowing it down.
 """
 
 from __future__ import annotations
