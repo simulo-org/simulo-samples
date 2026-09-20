@@ -50,9 +50,11 @@ simulo run samples/jetbot/app.py
 For a quick check that the job launches, use `--max-iterations 2`. Add `--detach` to submit
 without waiting for the log.
 
-`simulo systems` reports the measured ceiling on parallel environments for each tier. The default
-`--num-envs` sits at that ceiling; asking for more than the tier can hold ends the run with an
-out-of-memory failure rather than running it slowly.
+What bounds `--num-envs` is memory, and the bound is per app rather than per tier: the other
+samples here ship much larger defaults. 16 is the figure measured for this app. Asking for more
+memory than the job is given ends the run with an out-of-memory failure rather than running it
+slowly. `simulo systems` reports a measured ceiling for Tier 1 and "not yet measured" for the
+other tiers; that figure comes from one workload and is not a platform-wide limit.
 
 The job has one configured 8-hour execution budget shared by the initial attempt and its two
 retries. Dependency and asset preparation happens before that execution deadline, so this is not
@@ -98,8 +100,9 @@ only detaches from the stream; it does not cancel the job.
 - `simulo run` prints "This wrote a local package only": you are not signed in.
 - The job stays `queued`: the cloud is waiting for GPU capacity.
 - The reward stops improving after iteration 150 or so: that matches the cited run, which used
-  many more environments than the default. Raise `--max-iterations` to push further, or
-  `--num-envs` up to the ceiling `simulo systems` reports for the tier.
+  many more environments than the default. Raise `--max-iterations` to push further. Raising
+  `--num-envs` gives more experience per iteration, but memory bounds it: 32 has been measured
+  to complete for this app and 64 has not.
 - The job failed: `simulo logs` prints the platform's reason code and detail after its header.
 
 ## Extending it
