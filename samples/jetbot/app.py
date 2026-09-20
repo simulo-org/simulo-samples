@@ -37,10 +37,10 @@ Sign in once with ``simulo login``, then::
 
     simulo run samples/jetbot/app.py
 
-Use ``--max-iterations 2`` for a quick check that the job launches. ``simulo systems``
-reports the measured ceiling on parallel environments for each tier; asking for more
-than a tier can hold ends the run with an out-of-memory failure rather than slowing it
-down.
+Use ``--max-iterations 2`` for a quick check that the job launches. What bounds
+``--num-envs`` is memory, and the bound is per app rather than per tier -- the other
+samples ship much larger defaults. 16 is the figure measured for this app; asking for
+more memory than the job is given ends the run rather than slowing it down.
 """
 
 from __future__ import annotations
@@ -208,9 +208,9 @@ def train_jetbot(num_envs: int = 16, max_iterations: int = 700) -> dict[str, Any
     Args:
         num_envs: Number of parallel environments to simulate. More environments give
             the trainer more experience per iteration and use more memory. The default
-            matches the ceiling ``simulo systems`` reports for the tier; a run that asks
-            for more than the tier can hold is stopped for exceeding its memory budget
-            rather than run slowly.
+            is the figure measured for this app; a run that asks for more memory than
+            the job is given is stopped rather than run slowly. 32 has been measured to
+            complete and 64 has not.
         max_iterations: Number of PPO policy-update iterations.
 
     Returns:
