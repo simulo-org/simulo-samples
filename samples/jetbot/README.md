@@ -44,11 +44,15 @@ Simulo names it uses, beyond those in the `cartpole` sample:
 
 ```bash
 simulo login
-simulo run samples/jetbot/app.py --num-envs 512 --max-iterations 700
+simulo run samples/jetbot/app.py
 ```
 
-For a quick check that the job launches, use `--num-envs 64 --max-iterations 2`. Add `--detach`
-to submit without waiting for the log.
+For a quick check that the job launches, use `--max-iterations 2`. Add `--detach` to submit
+without waiting for the log.
+
+`simulo systems` reports the measured ceiling on parallel environments for each tier. The default
+`--num-envs` sits at that ceiling; asking for more than the tier can hold ends the run with an
+out-of-memory failure rather than running it slowly.
 
 The job has one configured 8-hour execution budget shared by the initial attempt and its two
 retries. Dependency and asset preparation happens before that execution deadline, so this is not
@@ -56,15 +60,19 @@ an absolute billing ceiling. Run `simulo cancel <job-id>` to stop a queued or ru
 
 ## What to expect
 
-An earlier single-GPU run of this code reported a best reward near 190 at iteration 50 and near
-343 from iteration 150 onward. `best_reward` is a mean completed-episode return across 300 control
-steps (5 seconds at 60 Hz), not a per-step reward. The alignment term can contribute at most 300
-per episode; the velocity term supplies the remainder. Read those figures as the shape of the
-curve rather than as numbers to hit; training is not bit-for-bit reproducible.
+An earlier single-GPU run of this code with `--num-envs 512` reported a best reward near 190 at
+iteration 50 and near 343 from iteration 150 onward. That run used far more parallel environments
+than the current default, so read its numbers as the shape of the curve rather than as figures
+this sample reproduces: fewer environments means less experience per iteration, so the same reward
+arrives later, if at all, within 700 iterations. `best_reward` is a mean completed-episode return
+across 300 control steps (5 seconds at 60 Hz), not a per-step reward. The alignment term can
+contribute at most 300 per episode; the velocity term supplies the remainder. Training is not
+bit-for-bit reproducible.
 
 The result names the checkpoint the job saved into its volume, plus `iterations`, `best_reward`,
-and checkpoint bookkeeping fields. A run takes about five minutes at the defaults once capacity is free; a first run
-can take longer while the cloud prepares the runtime.
+and checkpoint bookkeeping fields. Expect several minutes of startup before any training output
+appears, whatever `--max-iterations` you pass; total time past that grows with the iteration
+count. A first run can take longer still while the cloud prepares the runtime.
 
 ## Inspecting results
 
@@ -89,8 +97,9 @@ only detaches from the stream; it does not cancel the job.
   the simulation starts. See [Assets](#assets).
 - `simulo run` prints "This wrote a local package only": you are not signed in.
 - The job stays `queued`: the cloud is waiting for GPU capacity.
-- The reward stops improving after iteration 150 or so: that matches the cited run. Raise
-  `--max-iterations` or `--num-envs` to push further.
+- The reward stops improving after iteration 150 or so: that matches the cited run, which used
+  many more environments than the default. Raise `--max-iterations` to push further, or
+  `--num-envs` up to the ceiling `simulo systems` reports for the tier.
 - The job failed: `simulo logs` prints the platform's reason code and detail after its header.
 
 ## Extending it
