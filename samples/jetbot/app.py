@@ -20,22 +20,27 @@ Task summary
 * Termination: none. The robot cannot really fail this task, so every episode
   truncates at the time limit.
 
-What to expect from the defaults
---------------------------------
-An earlier single-GPU run at the defaults reported a best reward near 190 at iteration
-50 and near 343 from iteration 150 onward. ``best_reward`` is a mean completed-episode
-return across 300 control steps, not a per-step reward. The alignment term can
-contribute at most 300 per episode; the velocity term supplies the remainder. Read
-those figures as the shape of the curve rather than as numbers to hit; training is not
-bit-for-bit reproducible.
+What to expect
+--------------
+An earlier single-GPU run with ``--num-envs 512`` reported a best reward near 190 at
+iteration 50 and near 343 from iteration 150 onward. That run used far more parallel
+environments than the default below, so read its numbers as the shape of the curve
+rather than as figures this sample reproduces: fewer environments means less experience
+per iteration, so the same reward arrives later, if at all, within 700 iterations.
+``best_reward`` is a mean completed-episode return across 300 control steps, not a
+per-step reward. The alignment term can contribute at most 300 per episode; the velocity
+term supplies the remainder. Training is not bit-for-bit reproducible.
 
 Run it
 ------
 Sign in once with ``simulo login``, then::
 
-    simulo run samples/jetbot/app.py --num-envs 512 --max-iterations 700
+    simulo run samples/jetbot/app.py
 
-Use ``--num-envs 64 --max-iterations 2`` for a quick check that the job launches.
+Use ``--max-iterations 2`` for a quick check that the job launches. ``simulo systems``
+reports the measured ceiling on parallel environments for each tier; asking for more
+than a tier can hold ends the run with an out-of-memory failure rather than slowing it
+down.
 """
 
 from __future__ import annotations
@@ -197,14 +202,16 @@ class JetbotTask(simulo.Task):
     retries=2,
     callbacks=[simulo.callbacks.ResumableCheckpoint(every=50)],
 )
-def train_jetbot(num_envs: int = 512, max_iterations: int = 700) -> dict[str, Any]:
+def train_jetbot(num_envs: int = 16, max_iterations: int = 700) -> dict[str, Any]:
     """Train the JetBot direction-following policy with PPO and save the checkpoint.
 
     Args:
         num_envs: Number of parallel environments to simulate. More environments give
-            the trainer more experience per iteration and use more GPU memory.
-        max_iterations: Number of PPO policy-update iterations. The default (700) is
-            the setting behind the reward figures in the module docstring.
+            the trainer more experience per iteration and use more memory. The default
+            matches the ceiling ``simulo systems`` reports for the tier; a run that asks
+            for more than the tier can hold is stopped for exceeding its memory budget
+            rather than run slowly.
+        max_iterations: Number of PPO policy-update iterations.
 
     Returns:
         A JSON-serialisable dict: the saved ``checkpoint`` path inside the volume plus
