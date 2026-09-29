@@ -61,8 +61,6 @@ def train(num_envs: int = 4096, max_iterations: int = 200) -> dict[str, Any]:
         task=CartpoleTask(),
         num_envs=num_envs,
         device="cuda",
-        dt=1.0 / 120.0,
-        physics_steps_per_action=2,
         env_spacing=4.0,
         headless=True,
         seed=42,

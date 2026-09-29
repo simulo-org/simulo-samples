@@ -53,8 +53,10 @@ DIFFICULTIES = ("introductory", "intermediate", "advanced")
 # Each sample submits exactly one job, from train.py. A sample may also keep its
 # application and task in task.py, which train.py imports; a task file declares no job.
 ENTRY_FILE = "train.py"
+# A sample may also keep one preview job, which checks the robot in its task before training.
+PREVIEW_FILE = "preview.py"
 SAMPLE_FILES = {ENTRY_FILE, "README.md", ".simuloignore"}
-OPTIONAL_SAMPLE_FILES = {"task.py"}
+OPTIONAL_SAMPLE_FILES = {"task.py", PREVIEW_FILE}
 IGNORED_SAMPLE_ENTRIES = {"__pycache__", ".simulo"}
 SLUG_PATTERN = re.compile(r"[a-z0-9][a-z0-9-]*\Z")
 # The kinds `simulo asset publish --kind` accepts. A catalog reference is
@@ -451,6 +453,37 @@ def discover(entries: list[dict[str, Any]]) -> None:
                 (job,) = declared
                 job_type = jobs[job].get("type") if isinstance(jobs[job], dict) else None
                 print(f"Packaged {entry['slug']} job {job!r} of type {job_type!r}.")
+            finally:
+                shutil.rmtree(package_dir, ignore_errors=True)
+
+            preview_path = entry_path.parent / PREVIEW_FILE
+            if not preview_path.is_file():
+                continue
+            try:
+                checked += 1
+                result = subprocess.run(
+                    [executable, "run", str(preview_path.relative_to(ROOT))],
+                    cwd=ROOT,
+                    env=environment,
+                    text=True,
+                    capture_output=True,
+                    check=False,
+                )
+                if result.returncode != 0:
+                    fail(
+                        f"discovery failed for {entry['slug']}/{PREVIEW_FILE} with exit "
+                        f"{result.returncode}: {result.stderr.strip() or result.stdout.strip()}"
+                    )
+                jobs = _packaged_jobs(package_dir)
+                job_types = [
+                    job.get("type") if isinstance(job, dict) else None for job in jobs.values()
+                ]
+                if job_types != ["preview"]:
+                    fail(
+                        f"{entry['slug']}/{PREVIEW_FILE} must declare one preview job, "
+                        f"found {job_types}"
+                    )
+                print(f"Packaged {entry['slug']} preview job {next(iter(jobs))!r}.")
             finally:
                 shutil.rmtree(package_dir, ignore_errors=True)
 

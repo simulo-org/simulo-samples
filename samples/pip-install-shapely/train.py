@@ -61,8 +61,6 @@ def train(num_envs: int = 64, max_iterations: int = 300) -> dict[str, Any]:
         task=ShapelyZoneTask(zone_center_x=zone_center_x),
         num_envs=num_envs,
         device="cuda",
-        dt=1.0 / 120.0,
-        physics_steps_per_action=2,
         # Wider than jetbot's 2.0: the target zone reaches out to 3.0 m ahead of
         # each env's spawn point (plus spawn jitter and manoeuvring room), so
         # the grid cell needs more clearance. See "Zone geometry" in task.py for

@@ -35,6 +35,8 @@ still be imported on a laptop with no `torch` installed.
   declares no job.
 - `train.py`: the one job you submit, `train`. It imports `app` and `CartpoleTask` from
   `task.py`.
+- `preview.py`: a `preview` job that checks the robot inside `CartpoleTask` before you train.
+  It makes no policy.
 - `.simuloignore`: files `simulo run` leaves out of the uploaded package.
 
 Simulo names it uses:
@@ -71,6 +73,14 @@ queued or running job explicitly with the id printed by `simulo run`:
 
 ```bash
 simulo cancel <job-id>
+```
+
+Before a long training run you can preview the task. The preview job lets the cartpole settle,
+sweeps its driven joint, runs random actions through the real training loop, and prints a report
+with a recording. It makes no policy:
+
+```bash
+simulo run samples/cartpole/preview.py
 ```
 
 ## What to expect
