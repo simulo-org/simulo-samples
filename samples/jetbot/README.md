@@ -30,7 +30,9 @@ may have a quiet period after it reports `running`.
 
 ## Files and APIs
 
-- `app.py`: a quaternion helper, the reward kernel, the task, and the `train_jetbot` job.
+- `train.py`: a quaternion helper, the reward kernel, the task, and the `train_jetbot` job. It is the whole sample: the application, the task, and
+  the one job you submit. The job is declared with `@app.job(type="train", ...)`, so it
+  saves the policy's `best` and `latest` checkpoints automatically.
 - `.simuloignore`: files `simulo run` leaves out of the uploaded package.
 
 Simulo names it uses, beyond those in the `cartpole` sample:
@@ -44,7 +46,7 @@ Simulo names it uses, beyond those in the `cartpole` sample:
 
 ```bash
 simulo login
-simulo run samples/jetbot/app.py
+simulo run samples/jetbot/train.py
 ```
 
 For a quick check that the job launches, use `--max-iterations 2`. Add `--detach` to submit
@@ -71,8 +73,8 @@ across 300 control steps (5 seconds at 60 Hz), not a per-step reward. The alignm
 contribute at most 300 per episode; the velocity term supplies the remainder. Training is not
 bit-for-bit reproducible.
 
-The result names the checkpoint the job saved into its volume, plus `iterations`, `best_reward`,
-and checkpoint bookkeeping fields. Expect several minutes of startup before any training output
+The result holds `num_envs` and training statistics such as `iterations`, `best_reward`, and
+checkpoint bookkeeping fields. Expect several minutes of startup before any training output
 appears, whatever `--max-iterations` you pass; total time past that grows with the iteration
 count. A first run can take longer still while the cloud prepares the runtime.
 
@@ -81,17 +83,20 @@ count. A first run can take longer still while the cloud prepares the runtime.
 ```bash
 simulo jobs                           # status and job IDs
 simulo logs <job-id> --follow         # iteration and checkpoint lines
-simulo result <job-id>                # checkpoint, num_envs, iterations, best_reward
-simulo models <job-id>                # best.pt and latest.pt
-simulo models <job-id> best.pt        # download one, digest-verified
+simulo result <job-id>                # num_envs, iterations, best_reward
+simulo policy list                    # your policies and their checkpoints
+simulo policy get <policy-id>:best    # download the best checkpoint, digest-verified
+simulo export <policy-id>:best        # the best checkpoint as a portable ONNX bundle
 simulo cancel <job-id>                # stop a queued or running job
 ```
 
 To see the robot drive, submit with `--viewstream` and open `simulo view` while it runs;
 streaming can slow training, so use it to look.
 
-`<job-id>` is printed by `simulo run` and listed by `simulo jobs`. Stopping a log-follow session
-only detaches from the stream; it does not cancel the job.
+`<job-id>` and `<policy-id>` are printed by `simulo run` and listed by `simulo jobs`. Every
+training job makes one policy, whose ID is the job's ID with a `policy_` prefix in place of
+`job_`; the training job saves its `best` and `latest` checkpoints automatically. Stopping a
+log-follow session only detaches from the stream; it does not cancel the job.
 
 ## Troubleshooting
 
@@ -112,7 +117,7 @@ only detaches from the stream; it does not cancel the job.
 - Speed and episode length: `velocity_scale` and `episode_length_s`.
 - Give it somewhere to go: [Install a PyPI dependency](../pip-install-shapely/) drives the same
   robot into a target zone and computes the reward with a third-party geometry library.
-- Continue training: `--from <job-id>` with a higher `--max-iterations` total.
+- Continue training: `--from <policy-id>:best` with a higher `--max-iterations` total.
 
 ## Assets, licensing, attribution
 

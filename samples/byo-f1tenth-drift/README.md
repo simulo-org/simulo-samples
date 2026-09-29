@@ -13,10 +13,8 @@ catalog with one command, and from then on the car behaves like any other catalo
 robot: version-pinned, resolved when you submit, and mounted read-only while the job
 runs. You will learn 4WD steering (turn-radius geometry driving four independently
 scaled wheel targets from one steering angle), a multi-term weighted-sum reward with a
-real drift band, and a two-job train-then-inspect lifecycle: `train` saves a trainer
-checkpoint and exports a standalone TorchScript policy, tracking the best-so-far
-checkpoint rather than trusting the final one, and `rollout` plays that policy back with
-`simulo.RLPlayer` and records it to MCAP with an overhead camera video.
+real drift band, and how a training job's automatically saved `best` checkpoint keeps the
+strongest policy a run reached even when training diverges late.
 
 The task, reward shape, and race-car asset are ported from **WheeledLab**
 (`UWRobotLearning/WheeledLab`), an external open-source robotics research project — see
@@ -31,11 +29,9 @@ rather than written for it.
 - A clone of this repository. The commands below run from its root.
 - The car published to your organization's catalog. [Run it](#run-it) does that first;
   the training job cannot start before it.
-- No GPU on your machine. Both jobs ask for a Tier 1 GPU (T4) in the Simulo cloud and are
+- No GPU on your machine. The job asks for a Tier 1 GPU (T4) in the Simulo cloud and is
   billed to your account. Hardware describes the job's own request, not queue priority:
   it waits on the same shared GPU fleet as every other job.
-- To open the recording: Foxglove or Lichtblick, both free desktop applications, or the
-  `mcap` Python package, which the Simulo client already depends on.
 
 ## Assets
 
@@ -56,7 +52,7 @@ rather than written for it.
   reference carries no publisher segment, so it resolves against whichever organization
   you are signed in as.
 
-The car has six joints, each resolved on its exact name in `app.py`: steering
+The car has six joints, each resolved on its exact name in `task.py`: steering
 `rotator_left` / `rotator_right`, and wheels `wheel_front_left` / `wheel_front_right` /
 `wheel_back_left` / `wheel_back_right`. A car of your own with different joint names
 needs those names changed to match, in `on_start`, where they're resolved.
@@ -66,13 +62,15 @@ spawns clipping into or floating above the ground.
 
 ## Files and APIs
 
-- `app.py`: the 4WD action mapping, the multi-term reward kernel, the task, and the
-  `train` and `rollout` jobs.
+- `task.py`: the application, the 4WD action mapping, the multi-term reward kernel, the
+  task, and `_train`, the training body. It declares no job.
+- `train.py`: the one job you submit, `train`, which calls `_train`. It is declared with
+  `@app.job(type="train", ...)`, so it saves the policy's `best` and `latest` checkpoints
+  automatically.
 - `.simuloignore`: files `simulo run` leaves out of the uploaded package.
 - `../../assets/robot/f1tenth/f1tenth.usd`: the race-car asset.
 
-Simulo names it uses, beyond those in [byo-urdf-arm](../byo-urdf-arm/) and
-[Cartpole Eval](../cartpole-eval/):
+Simulo names it uses, beyond those in [byo-urdf-arm](../byo-urdf-arm/):
 
 - `simulo.Asset.from_registry("robot/f1tenth:v1")`: the same organization-scoped
   reference pattern as `byo-urdf-arm`, on a floating-base (mobile) robot instead of a
@@ -83,12 +81,13 @@ Simulo names it uses, beyond those in [byo-urdf-arm](../byo-urdf-arm/) and
 - `robot.set_root_pose(...)` and `robot.set_root_velocity(...)`, used at reset to
   teleport the car to a random point on the track and again mid-episode to apply a small
   periodic push.
+- `simulo.RLTrainer(..., agent_cfg=...)` with a KL-adaptive learning-rate scheduler and a
+  per-update KL guard, both explained in `_ppo_overrides`.
 - `simulo.Camera`, `simulo.SensorOffset.look_at(...)`, and `simulo.CameraSpawnConfig`
-  for a standalone, world-frame, top-down camera added directly to the scene (not
-  attached to the robot, unlike `cartpole-eval`'s side-mounted one) — a link name on a
-  car you bring yourself is never known in advance.
-- `simulo.RLPlayer(env=..., checkpoint=...)` and `player.play(num_steps=..., record=...)`,
-  the same inference-and-recording pattern `cartpole-eval`'s `rollout` job uses.
+  for an optional standalone, world-frame, top-down camera added directly to the scene
+  rather than attached to the robot, because a link name on a car you bring yourself is
+  never known in advance. Training leaves it off; it is there for playing a policy back,
+  which arrives in a later Simulo release.
 
 The reward is a single weighted sum of seven terms: side-slip (rewarded only inside a
 real-drift band, not while crawling or spinning out), speed-tracking against a 3 m/s
@@ -106,7 +105,7 @@ episode the way a spawn pose is re-rolled, and tire friction has no setter at al
 to the actor/critic network (a fixed `[256, 128, 64]` shape, in place of upstream's
 requested `[64, 64]`). None of these change what the car is trained to do; they are
 stated in full
-in `app.py`'s module docstring.
+in `task.py`'s module docstring.
 
 ## Run it
 
@@ -130,20 +129,17 @@ Check what the catalog recorded:
 simulo asset inspect robot/f1tenth:v1
 ```
 
-Then train, and once `train` completes, play the result back:
+Then train:
 
 ```bash
-simulo run samples/byo-f1tenth-drift/app.py --job train --num-envs 256 --max-iterations 500
-simulo run samples/byo-f1tenth-drift/app.py --job rollout --num-steps 300
+simulo run samples/byo-f1tenth-drift/train.py --num-envs 256 --max-iterations 500
 ```
 
-`--job` is required because the file declares two jobs; `simulo run
-samples/byo-f1tenth-drift/app.py -h` lists them, and `--job train -h` lists one job's
-own flags. `--num-envs` and `--max-iterations` are `train`'s; `--num-steps` is
-`rollout`'s.
+`--num-envs` and `--max-iterations` are `train`'s own parameters;
+`simulo run samples/byo-f1tenth-drift/train.py -h` lists them.
 
-`train`'s execution budget is eight hours, shared across its first attempt and up to two
-retries; `rollout`'s is one hour. Pressing Ctrl-C while following logs only detaches
+The execution budget is eight hours, shared across the first attempt and up to two
+retries. Pressing Ctrl-C while following logs only detaches
 your terminal. Stop a queued or running job explicitly with its job id:
 
 ```bash
@@ -160,19 +156,16 @@ non-degenerate learning. `best_reward` for a good run lands around 90,000 at the
 defaults (256 envs, 500 iterations), roughly 75,000 to 93,000 across runs, in roughly
 3.5-4 minutes of job time; wall-clock will vary with GPU class and load. Training is
 stochastic: most runs produce a good policy, and occasionally one diverges to `NaN`
-partway through. `train` always loads the trainer's tracked best-so-far checkpoint
-before saving and exporting, rather than trusting the final state, and independently
-verifies the exported policy is finite before returning success, so you get a usable
-result either way — though a run that diverges early exports a correspondingly weaker
-policy.
+partway through. The training job keeps the policy's `best` checkpoint, the save with the
+highest mean episode reward, separately from `latest`, so a late divergence does not
+replace the strongest policy the run reached, though a run that diverges early leaves a
+correspondingly weaker `best`.
 
-`train`'s result names both saved files and whether the best checkpoint was used:
+The result names the catalog reference the run trained against, alongside the training
+statistics:
 
 ```json
 {
-  "checkpoint": "<checkpoints-volume-path>/f1tenth_drift_final.pt",
-  "policy": "<checkpoints-volume-path>/f1tenth_drift_policy.pt",
-  "used_best_checkpoint": true,
   "num_envs": 256,
   "robot_asset": "robot/f1tenth:v1",
   "iterations": 500,
@@ -180,76 +173,54 @@ policy.
 }
 ```
 
-`used_best_checkpoint` is `false` only when no episode ever finished during training —
-in that case both files are the trainer's final state, and a rerun with a different seed
-is worth trying. Otherwise, judge a run by playing it back — run `rollout` and watch the
-recording, or drive the exported policy from a spread of spawns yourself. `best_reward`
-is the training-time mean episode reward, and it tracks how the exported policy actually
-drives only loosely, so do not read it as a pass/fail number; if the recording
-disappoints, rerun `train` — a fresh run usually does better.
+`best_reward` is the training-time mean episode reward, and it tracks how the policy
+actually drives only loosely, so do not read it as a pass/fail number. If a run looks
+poor, rerun `train`; a fresh run usually does better.
 
 Be clear-eyed about what the resulting policy does. Played back from a spread of random
-starting positions, it holds the track from the large majority of them. The reward
-weights that shape the driving style are unchanged by this fix: side-slip is only
+starting positions, a policy from this training held the track from the large majority of
+them. The reward weights that shape the driving style are unchanged: side-slip is only
 rewarded inside a real drift band, and the counter-steer bonus stays off by default (see
 "Files and APIs" above), so the policy tends to drive as a fast racing-line follower more
-than a dramatic drifter — `rollout`'s recording is the way to see exactly what your own
-run produced, and reshaping the reward toward more slip is one of the things to try under
-"Extending it" below.
-
-`rollout` plays one full 5 s episode and returns playback statistics, including
-`messages_written` and `recording_complete`, alongside the recording path:
-
-```json
-{
-  "policy": "<checkpoints-volume-path>/f1tenth_drift_policy.pt",
-  "mcap": "<reports-volume-path>/rollout.mcap",
-  "messages_written": 2335,
-  "recording_complete": true
-}
-```
+than a dramatic drifter. Reshaping the reward toward more slip is one of the things to try
+under "Extending it" below.
 
 ## Inspecting results
 
 ```bash
 simulo asset inspect robot/f1tenth:v1   # what the catalog recorded for the car
 simulo asset list                       # every asset in your organization's catalog
-simulo jobs                             # both jobs, most recent first
+simulo jobs                             # status, job IDs, and each job's policy
 simulo logs <job-id> --follow           # iteration and checkpoint lines
 simulo result <job-id>                  # the returned dictionary
-simulo models <job-id>                  # best.pt and latest.pt from the training job
-simulo recordings                       # download rollout.mcap from the rollout job
+simulo policy list                      # your policies and their checkpoints
+simulo policy get <policy-id>:best      # download the best checkpoint, digest-verified
+simulo export <policy-id>:best          # the best checkpoint as a portable ONNX bundle
 simulo cancel <job-id>                  # stop a queued or running job
 ```
-
-Open `rollout.mcap` in Foxglove or Lichtblick. Add an Image panel on
-`/sensors/camera/overhead_cam/video_foxglove` to watch the car from above, and a Plot
-panel on `/reward.total` to see the reward per step.
 
 To watch training itself, submit with `--viewstream` and open `simulo view` while it
 runs; streaming slows training, so use it to look, not for a timed run.
 
-`<job-id>` is printed by `simulo run` and listed by `simulo jobs`. Stopping a log-follow
-session only detaches from the stream; it does not cancel the job.
+`<job-id>` and `<policy-id>` are printed by `simulo run` and listed by `simulo jobs`.
+Every training job makes one policy, whose ID is the job's ID with a `policy_` prefix in
+place of `job_`. Stopping a log-follow session only detaches from the stream; it does not
+cancel the job.
 
 ## Troubleshooting
 
 - The job fails while building the scene, naming an asset it cannot resolve: the car is
   not in the catalog of the organization you are signed in as. Publish it, then submit
   again.
-- `rollout` fails with "Checkpoint not found": run `--job train` first. `rollout` reads
-  the policy `train` writes, and the checkpoint volume starts empty.
 - `simulo asset publish` cannot tell which file to start from: pass
   `--entry f1tenth.usd`.
 - The car falls through the ground or drives strangely: it was published without
   `--base floating`. Publish again with it; that creates a new version, so update the
-  reference in `app.py` and re-publish before training against it.
+  reference in `task.py` and re-publish before training against it.
 - `simulo run` prints "This wrote a local package only": you are not signed in.
 - The job stays `queued`: the cloud is waiting for GPU capacity.
-- `train` raises "produced a non-finite action ... refusing to hand back a broken
-  checkpoint": this fires only when no episode ever finished during the whole run, so
-  even the best-so-far checkpoint has nothing usable in it. Rerun with more iterations
-  or a different seed.
+- The policy has only a `latest` checkpoint: a save becomes `best` only when an episode
+  finished since the previous save. Rerun with more iterations or a different seed.
 - The task cannot find its joints after you swap in a car of your own: the six names
   `on_start` and `_compute_car_targets` look up are the ones this asset declares. Change
   them to your car's names.
@@ -258,10 +229,10 @@ session only detaches from the stream; it does not cancel the job.
 
 - Publish a car of your own: point `simulo asset publish` at your own USD package,
   choose the catalog name with `--name`, and change the reference at the top of
-  `app.py` to match.
+  `task.py` to match.
 - Train for longer: raising `--max-iterations` gives the policy more chances at a better
-  peak reward, and the best-checkpoint export means a late divergence still doesn't cost
-  you the run — though it does not guarantee the divergence won't happen at all.
+  peak reward, and the automatically saved `best` checkpoint means a late divergence still
+  doesn't cost you the run — though it does not guarantee the divergence won't happen at all.
 - Reshape the reward: the `rew_scale_*` class attributes on `F1TenthDriftTask` weight
   each term against the others. `rew_scale_tlgr` in particular starts at `0.0`; raising
   it turns on the counter-steer bonus upstream normally phases in later in training.
@@ -271,12 +242,10 @@ session only detaches from the stream; it does not cancel the job.
 - Change the track: `straight`, `line_radius`, `corner_in_radius`, and
   `corner_out_radius` set the stadium's shape and how much drivable corridor the car has
   before an episode terminates.
-- Change the shot: `simulo.SensorOffset.look_at(pos=..., target=...)` in `build` places
-  the overhead camera.
 
 ## Assets, licensing, attribution
 
-The task, reward shape, and track geometry in `app.py`, and the race-car asset in
+The task, reward shape, and track geometry in `task.py`, and the race-car asset in
 `assets/robot/f1tenth/`, are ported from **WheeledLab** (`UWRobotLearning/WheeledLab`),
 an open-source robotics research project from the University of Washington, used here
 under its BSD-3-Clause license:

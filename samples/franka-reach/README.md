@@ -28,7 +28,9 @@ a fresh goal for each.
 
 ## Files and APIs
 
-- `app.py`: the reward kernel, the task, and the `train_franka_reach` job.
+- `train.py`: the reward kernel, the task, and the `train_franka_reach` job. It is the whole sample: the application, the task, and
+  the one job you submit. The job is declared with `@app.job(type="train", ...)`, so it
+  saves the policy's `best` and `latest` checkpoints automatically.
 - `.simuloignore`: files `simulo run` leaves out of the uploaded package.
 
 Simulo names it uses, beyond those in the [Cartpole](../cartpole/) sample:
@@ -56,7 +58,7 @@ Simulo names it uses, beyond those in the [Cartpole](../cartpole/) sample:
 
 ```bash
 simulo login
-simulo run samples/franka-reach/app.py --num-envs 2048 --max-iterations 300
+simulo run samples/franka-reach/train.py --num-envs 2048 --max-iterations 300
 ```
 
 For a quick check that the job launches, use `--num-envs 64 --max-iterations 2`. Add `--detach`
@@ -74,8 +76,8 @@ no-penalty episode-return ceiling is 360. The logged `best_reward` is a mean com
 return, not a per-step reward. Read it as a trend: it climbs as the hand finishes closer to the
 goal more often.
 
-The result names the checkpoint the job saved into its volume, plus `iterations`, `best_reward`,
-and checkpoint bookkeeping fields. A run takes about three minutes at the defaults once capacity is free; a first run
+The result holds `num_envs` and training statistics such as `iterations`, `best_reward`, and
+checkpoint bookkeeping fields. A run takes about three minutes at the defaults once capacity is free; a first run
 can take longer while the cloud prepares the runtime.
 
 ## Inspecting results
@@ -83,18 +85,20 @@ can take longer while the cloud prepares the runtime.
 ```bash
 simulo jobs                           # status and job IDs
 simulo logs <job-id> --follow         # iteration and checkpoint lines
-simulo result <job-id>                # checkpoint, num_envs, iterations, best_reward
-simulo models <job-id>                # best.pt and latest.pt
-simulo models <job-id> best.pt        # download one, digest-verified
-simulo export <job-id>                # best checkpoint as a portable ONNX bundle
+simulo result <job-id>                # num_envs, iterations, best_reward
+simulo policy list                    # your policies and their checkpoints
+simulo policy get <policy-id>:best    # download the best checkpoint, digest-verified
+simulo export <policy-id>:best        # the best checkpoint as a portable ONNX bundle
 simulo cancel <job-id>                # stop a queued or running job
 ```
 
 To watch the arm, submit with `--viewstream` and open `simulo view` while it runs; streaming can
 slow training, so use it to look.
 
-`<job-id>` is printed by `simulo run` and listed by `simulo jobs`. Stopping a log-follow session
-only detaches from the stream; it does not cancel the job.
+`<job-id>` and `<policy-id>` are printed by `simulo run` and listed by `simulo jobs`. Every
+training job makes one policy, whose ID is the job's ID with a `policy_` prefix in place of
+`job_`; the training job saves its `best` and `latest` checkpoints automatically. Stopping a
+log-follow session only detaches from the stream; it does not cancel the job.
 
 ## Troubleshooting
 

@@ -39,13 +39,15 @@ joint-space reaching task against a robot whose joint names you chose yourself.
   catalog instead.
 
 The arm has three revolute joints, `shoulder_pan`, `shoulder_lift`, and `elbow`, with
-limits of ±2.6, ±1.9, and ±2.2 radians and a 30 N·m effort limit each. `app.py` looks
+limits of ±2.6, ±1.9, and ±2.2 radians and a 30 N·m effort limit each. `train.py` looks
 those names up, so a robot of your own with different joint names needs the names in
 `on_start` changed to match.
 
 ## Files and APIs
 
-- `app.py`: the reward kernel, the task, and the `train` job.
+- `train.py`: the reward kernel, the task, and the one job you submit, `train`. The job is
+  declared with `@app.job(type="train", ...)`, so it saves the policy's `best` and `latest`
+  checkpoints automatically.
 - `.simuloignore`: files `simulo run` leaves out of the uploaded package.
 - `../../assets/robot/byo-urdf-arm/robot.urdf`: the robot description. Its
   `<mesh filename="meshes/...">` references resolve relative to the URDF.
@@ -73,7 +75,7 @@ simulo asset publish assets/robot/byo-urdf-arm \
 ```
 
 `--kind robot` says what you are publishing, and the command never guesses it.
-`--name byo-urdf-arm` fixes the catalog name `app.py` expects. `--entry robot.urdf` says which file to start from,
+`--name byo-urdf-arm` fixes the catalog name `train.py` expects. `--entry robot.urdf` says which file to start from,
 which matters because the directory holds meshes as well. The command uploads the
 directory, fills in the physics a URDF does not carry, such as drive gains, friction, and
 collision settings, and reports every value it chose on your behalf rather than applying
@@ -93,7 +95,7 @@ simulo asset inspect robot/byo-urdf-arm:v1
 Then train:
 
 ```bash
-simulo run samples/byo-urdf-arm/app.py --num-envs 256 --max-iterations 150
+simulo run samples/byo-urdf-arm/train.py --num-envs 256 --max-iterations 150
 ```
 
 `--num-envs` and `--max-iterations` are `train`'s own parameters. For a quick check that
@@ -110,23 +112,21 @@ from then on every run resolves `robot/byo-urdf-arm:v1` from the catalog and upl
 nothing.
 
 The training job then behaves like the other training samples. Once the simulation
-starts, the log shows an iteration counter and, every 50 iterations, a checkpoint line,
+starts, the log shows an iteration counter and, every 50 iterations, a "Checkpoint written" line,
 plus a "Best checkpoint saved" line whenever the mean episode reward improved. The reward
 here is negative and climbs toward zero: it is minus the squared joint-space distance to
 the target, minus a small velocity penalty. A policy that parks the arm on the target and
 holds it there scores near 0, and a random policy scores far below. `best_reward` is a
 mean completed-episode return, not a per-step reward.
 
-The result names the checkpoint the job saved into its volume and the catalog reference
-it trained against:
+The result names the catalog reference the job trained against:
 
 ```json
-{"checkpoint": "<runtime-volume-path>/byo_urdf_arm_final.pt", "num_envs": 256, "robot_asset": "robot/byo-urdf-arm:v1"}
+{"num_envs": 256, "robot_asset": "robot/byo-urdf-arm:v1"}
 ```
 
 Alongside those, the result carries the training statistics `RLTrainer.train` returns,
-such as `iterations` and `best_reward`. The `checkpoint` value is the path inside the
-job's volume, resolved when the job runs. A run takes about two minutes at the defaults
+such as `iterations` and `best_reward`. A run takes about two minutes at the defaults
 once capacity is free, including the one-time publish; a first run can take longer
 while the cloud prepares the runtime.
 
@@ -138,16 +138,19 @@ simulo asset list                           # every asset in your organization's
 simulo jobs                                 # status and job IDs
 simulo logs <job-id> --follow               # iteration and checkpoint lines
 simulo result <job-id>                      # the returned dictionary
-simulo models <job-id>                      # best.pt and latest.pt
-simulo export <job-id>                      # the best checkpoint as a portable ONNX bundle
+simulo policy list                          # your policies and their checkpoints
+simulo policy get <policy-id>:best          # download the best checkpoint, digest-verified
+simulo export <policy-id>:best              # the best checkpoint as a portable ONNX bundle
 simulo cancel <job-id>                      # stop a queued or running job
 ```
 
 To watch the arm move, submit with `--viewstream` and open `simulo view` while it runs;
 streaming slows training, so use it to look.
 
-`<job-id>` is printed by `simulo run` and listed by `simulo jobs`. Stopping a log-follow
-session only detaches from the stream; it does not cancel the job.
+`<job-id>` and `<policy-id>` are printed by `simulo run` and listed by `simulo jobs`. Every
+training job makes one policy, whose ID is the job's ID with a `policy_` prefix in place of
+`job_`. Stopping a log-follow session only detaches from the stream; it does not cancel the
+job.
 
 ## Troubleshooting
 
@@ -172,7 +175,7 @@ session only detaches from the stream; it does not cancel the job.
 ## Extending it
 
 - Publish a robot of your own: point `simulo asset publish` at your own directory, choose
-  the catalog name with `--name`, and change the reference at the top of `app.py` to
+  the catalog name with `--name`, and change the reference at the top of `train.py` to
   match.
 - Change this arm: edit `assets/robot/byo-urdf-arm/robot.urdf` and publish again. Each
   publish creates a new immutable version, so `:v1` keeps resolving to the arm you

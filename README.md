@@ -2,7 +2,8 @@
 
 This repository collects runnable Simulo robotics projects for engineers learning how to
 define cloud simulation and reinforcement learning jobs. Each sample is a small application
-that you submit with the Simulo client.
+that you submit with the Simulo client. A sample's `train.py` declares the one training job
+you submit, and a sample that keeps its task separate puts it in `task.py` next to it.
 
 ## Prerequisites and compatibility
 
@@ -49,15 +50,19 @@ commit ID to check out that revision instead of the default branch. A checkout m
 
 ## Quick start
 
-Start with [Hello](samples/hello/): it is deterministic, requests no GPU, uses no catalog
-assets, and has an exact expected result. Requesting no GPU keeps the job itself cheap and
-simple, but it does not skip the queue: every job in this repository, GPU-requesting or
-not, waits on the same shared GPU fleet, so a first run can still sit `queued` for a
-while.
+Start with [Cartpole](samples/cartpole/): it trains a pole-balancing policy on a catalog
+robot, and every other training sample here has the same shape. A short run checks that
+the job launches:
 
 ```bash
-simulo run samples/hello/app.py --name robot --repeat 5
+simulo run samples/cartpole/train.py --num-envs 64 --max-iterations 2
 ```
+
+Run it without the flags for the full training run. Every job waits on the same shared GPU
+fleet, so a first run can sit `queued` for a while. A training job saves its policy's
+`best` and `latest` checkpoints on its own. `simulo policy list` shows them, and
+`simulo run samples/cartpole/train.py --max-iterations 400 --from <policy-id>:best` continues
+training from one, with `--max-iterations` read as the new total.
 
 Each sample README explains its prerequisites, assets, expected results, and runtime.
 
@@ -70,20 +75,12 @@ same fleet, on the same basis as a job that does.
 <!-- BEGIN INDEX -->
 ### By learning goal
 
-#### Submit a job and read its output
-
-- [Hello](samples/hello/): No robot. Print a few greeting lines from a job and return a small JSON result. Concepts: App and jobs, job flags, logs and results. Assets: none. Hardware: no GPU requested by this job; it queues on the same shared GPU fleet as GPU jobs. Runtime: about 1 minute.
-
 #### Train a policy
 
-- [Cartpole](samples/cartpole/): Cartpole. Train a PPO policy that balances a pole on a sliding cart. Concepts: Task lifecycle, LearningEnv and RLTrainer, Volumes, ResumableCheckpoint. Assets: `simulo/robot/cartpole:v1`. Hardware: Tier 1 GPU job (T4, 16 GB VRAM); no local GPU required. Runtime: about 2 minutes.
+- [Cartpole](samples/cartpole/): Cartpole. Train a PPO policy that balances a pole on a sliding cart. Concepts: Task lifecycle, LearningEnv and RLTrainer, automatic checkpoints, continuing with --from. Assets: `simulo/robot/cartpole:v1`. Hardware: Tier 1 GPU job (T4, 16 GB VRAM); no local GPU required. Runtime: about 2 minutes.
 - [Humanoid](samples/humanoid/): Bipedal humanoid. Train a 21-joint biped to stay upright and move forward. Concepts: Locomotion, body-frame observations, termination versus truncation. Assets: `simulo/robot/humanoid:v1`. Hardware: Tier 1 GPU job (T4, 16 GB VRAM); no local GPU required. Runtime: about 5 minutes.
 - [JetBot](samples/jetbot/): JetBot. Train a two-wheeled robot to drive in a commanded direction. Concepts: Differential drive, randomised commands, network-fetched asset. Assets: `simulo/robot/jetbot:v2`. Hardware: Tier 1 GPU job (T4, 16 GB VRAM); no local GPU required. Runtime: about 5 minutes.
 - [Franka reach](samples/franka-reach/): Franka Panda arm. Train an arm to put its hand on a moving goal, with a differential IK controller. Concepts: Task-space control, DifferentialIKController, body pose readback. Assets: `simulo/robot/franka-panda:v1`. Hardware: Tier 1 GPU job (T4, 16 GB VRAM); no local GPU required. Runtime: about 3 minutes.
-
-#### Evaluate and record a policy
-
-- [Cartpole Eval](samples/cartpole-eval/): Cartpole. Train a policy, score it over several rounds, then play it back and record the rollout. Concepts: Multiple jobs, shared volumes, policy export, RLPlayer, MCAP recording, camera video. Assets: `simulo/robot/cartpole:v1`. Hardware: Tier 1 GPU job (T4, 16 GB VRAM); no local GPU required. Runtime: about 2 minutes.
 
 #### Bring your own dependency
 
@@ -92,24 +89,22 @@ same fleet, on the same basis as a job that does.
 #### Bring your own robot
 
 - [Bring your own URDF](samples/byo-urdf-arm/): Your own three-joint arm. Publish a robot you wrote as a URDF to your organization's catalog, then train a reaching policy on it. Concepts: simulo asset publish, organization catalog, URDF robots, joint-space reaching. Assets: `robot/byo-urdf-arm:v1`. Hardware: Tier 1 GPU job (T4, 16 GB VRAM); no local GPU required. Runtime: about 2 minutes.
-- [Bring your own F1TENTH-compatible car](samples/byo-f1tenth-drift/): Your own F1TENTH-compatible race car. Publish an F1TENTH-compatible USD race car to your organization's catalog, then train a drifting policy around a stadium-shaped track. Concepts: simulo asset publish, organization catalog, USD robots, 4WD steering, multi-term rewards, best-checkpoint export, RLPlayer, MCAP recording. Assets: `robot/f1tenth:v1`. Hardware: Tier 1 GPU job (T4, 16 GB VRAM); no local GPU required. Runtime: about 5 minutes.
+- [Bring your own F1TENTH-compatible car](samples/byo-f1tenth-drift/): Your own F1TENTH-compatible race car. Publish an F1TENTH-compatible USD race car to your organization's catalog, then train a drifting policy around a stadium-shaped track. Concepts: simulo asset publish, organization catalog, USD robots, 4WD steering, multi-term rewards, best checkpoints. Assets: `robot/f1tenth:v1`. Hardware: Tier 1 GPU job (T4, 16 GB VRAM); no local GPU required. Runtime: about 5 minutes.
 
 ### By difficulty
 
 #### Introductory
 
-- [Hello](samples/hello/): No robot. Print a few greeting lines from a job and return a small JSON result. Concepts: App and jobs, job flags, logs and results. Assets: none. Hardware: no GPU requested by this job; it queues on the same shared GPU fleet as GPU jobs. Runtime: about 1 minute.
-- [Cartpole](samples/cartpole/): Cartpole. Train a PPO policy that balances a pole on a sliding cart. Concepts: Task lifecycle, LearningEnv and RLTrainer, Volumes, ResumableCheckpoint. Assets: `simulo/robot/cartpole:v1`. Hardware: Tier 1 GPU job (T4, 16 GB VRAM); no local GPU required. Runtime: about 2 minutes.
+- [Cartpole](samples/cartpole/): Cartpole. Train a PPO policy that balances a pole on a sliding cart. Concepts: Task lifecycle, LearningEnv and RLTrainer, automatic checkpoints, continuing with --from. Assets: `simulo/robot/cartpole:v1`. Hardware: Tier 1 GPU job (T4, 16 GB VRAM); no local GPU required. Runtime: about 2 minutes.
 - [JetBot](samples/jetbot/): JetBot. Train a two-wheeled robot to drive in a commanded direction. Concepts: Differential drive, randomised commands, network-fetched asset. Assets: `simulo/robot/jetbot:v2`. Hardware: Tier 1 GPU job (T4, 16 GB VRAM); no local GPU required. Runtime: about 5 minutes.
 
 #### Intermediate
 
-- [Cartpole Eval](samples/cartpole-eval/): Cartpole. Train a policy, score it over several rounds, then play it back and record the rollout. Concepts: Multiple jobs, shared volumes, policy export, RLPlayer, MCAP recording, camera video. Assets: `simulo/robot/cartpole:v1`. Hardware: Tier 1 GPU job (T4, 16 GB VRAM); no local GPU required. Runtime: about 2 minutes.
 - [Humanoid](samples/humanoid/): Bipedal humanoid. Train a 21-joint biped to stay upright and move forward. Concepts: Locomotion, body-frame observations, termination versus truncation. Assets: `simulo/robot/humanoid:v1`. Hardware: Tier 1 GPU job (T4, 16 GB VRAM); no local GPU required. Runtime: about 5 minutes.
 - [Franka reach](samples/franka-reach/): Franka Panda arm. Train an arm to put its hand on a moving goal, with a differential IK controller. Concepts: Task-space control, DifferentialIKController, body pose readback. Assets: `simulo/robot/franka-panda:v1`. Hardware: Tier 1 GPU job (T4, 16 GB VRAM); no local GPU required. Runtime: about 3 minutes.
 - [Install a PyPI dependency](samples/pip-install-shapely/): JetBot. Compute a training reward with a third-party PyPI library installed into the job's runtime. Concepts: Runtime.pip_install, Runtime.env, third-party rewards. Assets: `simulo/robot/jetbot:v2`, `simulo/gpu-rl:2026.06`. Hardware: Tier 1 GPU job (T4, 16 GB VRAM); no local GPU required. Runtime: about 3 minutes.
 - [Bring your own URDF](samples/byo-urdf-arm/): Your own three-joint arm. Publish a robot you wrote as a URDF to your organization's catalog, then train a reaching policy on it. Concepts: simulo asset publish, organization catalog, URDF robots, joint-space reaching. Assets: `robot/byo-urdf-arm:v1`. Hardware: Tier 1 GPU job (T4, 16 GB VRAM); no local GPU required. Runtime: about 2 minutes.
-- [Bring your own F1TENTH-compatible car](samples/byo-f1tenth-drift/): Your own F1TENTH-compatible race car. Publish an F1TENTH-compatible USD race car to your organization's catalog, then train a drifting policy around a stadium-shaped track. Concepts: simulo asset publish, organization catalog, USD robots, 4WD steering, multi-term rewards, best-checkpoint export, RLPlayer, MCAP recording. Assets: `robot/f1tenth:v1`. Hardware: Tier 1 GPU job (T4, 16 GB VRAM); no local GPU required. Runtime: about 5 minutes.
+- [Bring your own F1TENTH-compatible car](samples/byo-f1tenth-drift/): Your own F1TENTH-compatible race car. Publish an F1TENTH-compatible USD race car to your organization's catalog, then train a drifting policy around a stadium-shaped track. Concepts: simulo asset publish, organization catalog, USD robots, 4WD steering, multi-term rewards, best checkpoints. Assets: `robot/f1tenth:v1`. Hardware: Tier 1 GPU job (T4, 16 GB VRAM); no local GPU required. Runtime: about 5 minutes.
 <!-- END INDEX -->
 
 ## Assets

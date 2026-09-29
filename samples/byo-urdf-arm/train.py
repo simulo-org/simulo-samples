@@ -32,7 +32,7 @@ Run it
 ------
 Sign in with ``simulo login``, publish ``assets/robot/byo-urdf-arm/``, then::
 
-    simulo run samples/byo-urdf-arm/app.py --num-envs 256 --max-iterations 150
+    simulo run samples/byo-urdf-arm/train.py --num-envs 256 --max-iterations 150
 
 ``--num-envs`` and ``--max-iterations`` are ``train``'s own parameters. Use
 ``--num-envs 16 --max-iterations 2`` for a quick check that the job launches.
@@ -49,16 +49,10 @@ import simulo
 # rather than against the Simulo catalog.
 byo_arm = simulo.Asset.from_registry("robot/byo-urdf-arm:v1")
 
-# A named, durable, writable volume for the trained checkpoint. This line only
-# declares metadata; nothing is created at packaging time. The job reads the
-# volume's real directory through ``vol.path``, which resolves only inside a
-# running job, never through the ``/out`` mount point declared below.
-vol = simulo.Volume.from_name("byo-urdf-arm-checkpoints", create_if_missing=True)
-
 # Advanced: pick a different Simulo runtime with
 # App("name", runtime=simulo.Runtime.from_registry("simulo/gpu-rl:2026.06"));
 # see https://docs.simulo.ai/concepts/runtimes/.
-app = simulo.App("byo-urdf-arm", mounts={"/out": vol})
+app = simulo.App("byo-urdf-arm")
 
 # The one heavy import, deferred: on your machine this block records the import
 # instead of resolving it; in the cloud it is a plain import.
@@ -177,18 +171,18 @@ class ByoArmTask(simulo.Task):
         ) * self.target_amplitude
 
 
-# retries=2 is safe because ResumableCheckpoint saves every 50 iterations and
-# resume defaults to "auto": a retried or preempted run picks up from the latest
-# checkpoint instead of starting over. The job body below needs no changes.
+# retries=2 reruns the job after a failure. A training job saves its latest
+# checkpoint automatically every 50 iterations, and a rerun picks up from it
+# instead of starting over.
 @app.job(
+    type="train",
     # Tier 1: T4 GPU, 16 GB VRAM. Run `simulo systems` for the full four-tier catalog.
     system=simulo.SystemType.TIER_1,
     timeout=8 * 60 * 60,
     retries=2,
-    callbacks=[simulo.callbacks.ResumableCheckpoint(every=50)],
 )
 def train(num_envs: int = 256, max_iterations: int = 150) -> dict[str, Any]:
-    """Train the reaching policy with PPO and save the checkpoint.
+    """Train the reaching policy with PPO. Simulo saves its checkpoints automatically.
 
     Everything here runs in the Simulo cloud: ``simulo.LearningEnv`` builds ``num_envs``
     parallel copies of ``ByoArmTask`` on the GPU and ``simulo.RLTrainer`` trains a PPO
@@ -199,9 +193,8 @@ def train(num_envs: int = 256, max_iterations: int = 150) -> dict[str, Any]:
         max_iterations: Number of PPO policy-update iterations.
 
     Returns:
-        A JSON-serialisable dict: the saved ``checkpoint`` path inside the volume, the
-        catalog reference the run trained against, and training statistics such as
-        ``iterations`` and ``best_reward``.
+        A JSON-serialisable dict: the catalog reference the run trained against and
+        training statistics such as ``iterations`` and ``best_reward``.
     """
     env = simulo.LearningEnv(
         task=ByoArmTask(),
@@ -217,16 +210,11 @@ def train(num_envs: int = 256, max_iterations: int = 150) -> dict[str, Any]:
 
     stats = trainer.train(max_iterations=max_iterations)
 
-    # Save the trained policy into the durable volume (vol.path resolves inside the job).
-    checkpoint = f"{vol.path}/byo_urdf_arm_final.pt"
-    trainer.save(checkpoint)
-
     # Close the trainer before the environment so the RL library releases its resources.
     trainer.close()
     env.close()
 
     return {
-        "checkpoint": checkpoint,
         "num_envs": num_envs,
         "robot_asset": "robot/byo-urdf-arm:v1",
         **stats,

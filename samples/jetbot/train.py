@@ -35,7 +35,7 @@ Run it
 ------
 Sign in once with ``simulo login``, then::
 
-    simulo run samples/jetbot/app.py
+    simulo run samples/jetbot/train.py
 
 Use ``--max-iterations 2`` for a quick check that the job launches. What bounds
 ``--num-envs`` is memory, and the bound is per app rather than per tier -- the other
@@ -63,16 +63,10 @@ import simulo
 # The JetBot robot: a version-pinned catalog reference.
 jetbot = simulo.Asset.from_registry("simulo/robot/jetbot:v2")
 
-# A named, durable, writable volume for the trained checkpoint. This line only
-# declares metadata; nothing is created at packaging time. The job reads the
-# volume's real directory through ``vol.path``, which resolves only inside a
-# running job.
-vol = simulo.Volume.from_name("jetbot-checkpoints", create_if_missing=True)
-
 # Advanced: pick a different Simulo runtime with
 # App("name", runtime=simulo.Runtime.from_registry("simulo/gpu-rl:2026.06"));
 # see https://docs.simulo.ai/concepts/runtimes/.
-app = simulo.App("jetbot", mounts={"/out": vol})
+app = simulo.App("jetbot")
 
 # The one heavy import, deferred: on your machine this block records the import
 # instead of resolving it; in the cloud it is a plain import.
@@ -202,18 +196,20 @@ class JetbotTask(simulo.Task):
         self._commands[env_ids, 2] = 0.0
 
 
-# retries=2 is safe because ResumableCheckpoint saves every 50 iterations and
-# resume defaults to "auto": a retried or preempted run picks up from the latest
-# checkpoint instead of starting over.
+# retries=2 reruns the job after a failure. A training job saves its latest
+# checkpoint automatically every 50 iterations, and a rerun picks up from it
+# instead of starting over.
 @app.job(
+    type="train",
     # Tier 1: T4 GPU, 16 GB VRAM. Run `simulo systems` for the full four-tier catalog.
     system=simulo.SystemType.TIER_1,
     timeout=8 * 60 * 60,
     retries=2,
-    callbacks=[simulo.callbacks.ResumableCheckpoint(every=50)],
 )
 def train_jetbot(num_envs: int = 16, max_iterations: int = 700) -> dict[str, Any]:
-    """Train the JetBot direction-following policy with PPO and save the checkpoint.
+    """Train the JetBot direction-following policy with PPO.
+
+    Simulo saves the policy's checkpoints automatically.
 
     Args:
         num_envs: Number of parallel environments to simulate. More environments give
@@ -224,8 +220,8 @@ def train_jetbot(num_envs: int = 16, max_iterations: int = 700) -> dict[str, Any
         max_iterations: Number of PPO policy-update iterations.
 
     Returns:
-        A JSON-serialisable dict: the saved ``checkpoint`` path inside the volume plus
-        training statistics such as ``iterations`` and ``best_reward``.
+        A JSON-serialisable dict of training statistics, such as ``iterations`` and
+        ``best_reward``.
     """
     env = simulo.LearningEnv(
         task=JetbotTask(),
@@ -241,11 +237,8 @@ def train_jetbot(num_envs: int = 16, max_iterations: int = 700) -> dict[str, Any
 
     stats = trainer.train(max_iterations=max_iterations)
 
-    checkpoint = f"{vol.path}/jetbot_final.pt"
-    trainer.save(checkpoint)
-
     # Close the trainer before the environment so the RL library releases its resources.
     trainer.close()
     env.close()
 
-    return {"checkpoint": checkpoint, "num_envs": num_envs, **stats}
+    return {"num_envs": num_envs, **stats}

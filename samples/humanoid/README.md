@@ -27,7 +27,9 @@ scale a policy's actions into effort targets; and why a fall (termination) and t
 
 ## Files and APIs
 
-- `app.py`: two quaternion helpers, the reward kernel, the task, and the `train_humanoid` job.
+- `train.py`: two quaternion helpers, the reward kernel, the task, and the `train_humanoid` job. It is the whole sample: the application, the task, and
+  the one job you submit. The job is declared with `@app.job(type="train", ...)`, so it
+  saves the policy's `best` and `latest` checkpoints automatically.
 - `.simuloignore`: files `simulo run` leaves out of the uploaded package.
 
 Simulo names it uses, beyond those in the `cartpole` sample:
@@ -43,7 +45,7 @@ Simulo names it uses, beyond those in the `cartpole` sample:
 
 ```bash
 simulo login
-simulo run samples/humanoid/app.py --num-envs 1024 --max-iterations 600
+simulo run samples/humanoid/train.py --num-envs 1024 --max-iterations 600
 ```
 
 For a quick check that the job launches, use `--num-envs 64 --max-iterations 2`. Add `--detach`
@@ -66,8 +68,8 @@ The defaults collect 9,830,400 transitions: 1024 environments multiplied by 600 
 and the trainer's 16-step rollout. The cited run did not learn a walking gait. For scale, 4096
 environments for 500 to 1000 updates would collect 32,768,000 to 65,536,000 transitions.
 
-The result names the checkpoint the job saved into its volume, plus `iterations`, `best_reward`,
-and checkpoint bookkeeping fields. A run takes about five minutes at the defaults once capacity is free; a first run
+The result holds `num_envs` and training statistics such as `iterations`, `best_reward`, and
+checkpoint bookkeeping fields. A run takes about five minutes at the defaults once capacity is free; a first run
 can take longer while the cloud prepares the runtime.
 
 ## Inspecting results
@@ -75,9 +77,10 @@ can take longer while the cloud prepares the runtime.
 ```bash
 simulo jobs                           # status and job IDs
 simulo logs <job-id> --follow         # iteration and checkpoint lines
-simulo result <job-id>                # checkpoint, num_envs, iterations, best_reward
-simulo models <job-id>                # best.pt and latest.pt
-simulo models <job-id> best.pt        # download one, digest-verified
+simulo result <job-id>                # num_envs, iterations, best_reward
+simulo policy list                    # your policies and their checkpoints
+simulo policy get <policy-id>:best    # download the best checkpoint, digest-verified
+simulo export <policy-id>:best        # the best checkpoint as a portable ONNX bundle
 simulo cancel <job-id>                # stop a queued or running job
 ```
 
@@ -85,8 +88,10 @@ Watch the "Best checkpoint saved" lines in the log: their reward values are the 
 above. To see the robot, submit with `--viewstream` and open `simulo view` while it runs;
 streaming can slow training, so use it to look.
 
-`<job-id>` is printed by `simulo run` and listed by `simulo jobs`. Stopping a log-follow session
-only detaches from the stream; it does not cancel the job.
+`<job-id>` and `<policy-id>` are printed by `simulo run` and listed by `simulo jobs`. Every
+training job makes one policy, whose ID is the job's ID with a `policy_` prefix in place of
+`job_`; the training job saves its `best` and `latest` checkpoints automatically. Stopping a
+log-follow session only detaches from the stream; it does not cancel the job.
 
 ## Troubleshooting
 
@@ -100,8 +105,8 @@ only detaches from the stream; it does not cancel the job.
 ## Extending it
 
 - Increase experience: use a larger `--num-envs` or `--max-iterations`, or continue a finished
-  run with `--from <job-id>` and a higher `--max-iterations` total. The scale example above shows
-  how to calculate the transition count.
+  run with `--from <policy-id>:best` and a higher `--max-iterations` total. The scale example
+  above shows how to calculate the transition count.
 - Reshape the reward: `heading_weight`, `up_weight`, `energy_cost_scale`, `actions_cost_scale`,
   `alive_reward_scale`, and `death_cost` on `HumanoidTask`.
 - Change the command: `on_start` builds a fixed "walk forward" command; sample it per environment

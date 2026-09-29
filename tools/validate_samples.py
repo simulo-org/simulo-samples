@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import re
 import shutil
@@ -49,7 +50,11 @@ REQUIRED_FIELDS = {
     "published": bool,
 }
 DIFFICULTIES = ("introductory", "intermediate", "advanced")
-SAMPLE_FILES = {"app.py", "README.md", ".simuloignore"}
+# Each sample submits exactly one job, from train.py. A sample may also keep its
+# application and task in task.py, which train.py imports; a task file declares no job.
+ENTRY_FILE = "train.py"
+SAMPLE_FILES = {ENTRY_FILE, "README.md", ".simuloignore"}
+OPTIONAL_SAMPLE_FILES = {"task.py"}
 IGNORED_SAMPLE_ENTRIES = {"__pycache__", ".simulo"}
 SLUG_PATTERN = re.compile(r"[a-z0-9][a-z0-9-]*\Z")
 # The kinds `simulo asset publish --kind` accepts. A catalog reference is
@@ -110,8 +115,8 @@ def validate_entry(entry: Any, index: int) -> dict[str, Any]:
     for field in ("concepts", "assets", "jobs"):
         if not all(type(item) is str and item.strip() for item in entry[field]):
             fail(f"samples[{index}].{field} must contain only non-empty strings")
-    if not entry["jobs"]:
-        fail(f"samples[{index}].jobs must list at least one job")
+    if len(entry["jobs"]) != 1:
+        fail(f"samples[{index}].jobs must list exactly one job, the one {ENTRY_FILE} declares")
 
     if entry["difficulty"] not in DIFFICULTIES:
         fail(f"samples[{index}].difficulty must be one of: {', '.join(DIFFICULTIES)}")
@@ -216,11 +221,15 @@ def validate_directories(entries: list[dict[str, Any]]) -> None:
         # __pycache__/ behind, and an offline `simulo run` leaves .simulo/. Both are
         # ignored by git and neither is part of the sample.
         present = {path.name for path in directory.iterdir()} - IGNORED_SAMPLE_ENTRIES
-        if present != SAMPLE_FILES:
+        if not SAMPLE_FILES <= present <= SAMPLE_FILES | OPTIONAL_SAMPLE_FILES:
             expected = ", ".join(sorted(SAMPLE_FILES))
+            optional = ", ".join(sorted(OPTIONAL_SAMPLE_FILES))
             actual = ", ".join(sorted(present)) or "(empty)"
-            fail(f"samples/{slug}/ must contain exactly {expected}; found {actual}")
-        for file_name in SAMPLE_FILES:
+            fail(
+                f"samples/{slug}/ must contain exactly {expected}, and optionally {optional}; "
+                f"found {actual}"
+            )
+        for file_name in present:
             if not (directory / file_name).is_file():
                 fail(f"samples/{slug}/{file_name} must be a regular file")
 
@@ -379,6 +388,20 @@ def _installed_simulo_version(executable: str) -> str:
     return parts[1]
 
 
+def _packaged_jobs(package_root: Path) -> dict[str, Any]:
+    """The jobs recorded in the one package an offline `simulo run` just wrote."""
+    manifests = sorted(package_root.glob("packages/*/simulo.manifest.json"))
+    if len(manifests) != 1:
+        fail(f"expected one package manifest under {package_root}, found {len(manifests)}")
+    try:
+        jobs = json.loads(manifests[0].read_text(encoding="utf-8"))["jobs"]
+    except (json.JSONDecodeError, KeyError, TypeError) as error:
+        fail(f"cannot read the jobs from {manifests[0]}: {error}")
+    if not isinstance(jobs, dict):
+        fail(f"the jobs in {manifests[0]} are not a mapping")
+    return jobs
+
+
 def discover(entries: list[dict[str, Any]]) -> None:
     executable = shutil.which("simulo")
     if executable is None:
@@ -396,30 +419,41 @@ def discover(entries: list[dict[str, Any]]) -> None:
     with tempfile.TemporaryDirectory(prefix="simulo-samples-home-") as home:
         environment["HOME"] = home
         for entry in present_entries(entries):
-            app_path = SAMPLES_DIR / entry["slug"] / "app.py"
-            package_dir = app_path.parent / ".simulo"
+            entry_path = SAMPLES_DIR / entry["slug"] / ENTRY_FILE
+            package_dir = entry_path.parent / ".simulo"
+            # Start from an empty package directory so the manifest read below is the
+            # one this run wrote.
+            shutil.rmtree(package_dir, ignore_errors=True)
             try:
-                for job in entry["jobs"]:
-                    checked += 1
-                    result = subprocess.run(
-                        [executable, "run", str(app_path.relative_to(ROOT)), "--job", job],
-                        cwd=ROOT,
-                        env=environment,
-                        text=True,
-                        capture_output=True,
-                        check=False,
+                checked += 1
+                result = subprocess.run(
+                    [executable, "run", str(entry_path.relative_to(ROOT))],
+                    cwd=ROOT,
+                    env=environment,
+                    text=True,
+                    capture_output=True,
+                    check=False,
+                )
+                if result.returncode != 0:
+                    fail(
+                        f"discovery failed for {entry['slug']} with exit "
+                        f"{result.returncode}: {result.stderr.strip() or result.stdout.strip()}"
                     )
-                    if result.returncode != 0:
-                        fail(
-                            f"discovery failed for {entry['slug']} job {job!r} with exit "
-                            f"{result.returncode}: {result.stderr.strip() or result.stdout.strip()}"
-                        )
-                    print(f"Packaged {entry['slug']} job {job!r}.")
+                # The client refuses a file that declares no job or more than one, so a
+                # zero exit means exactly one. Compare it with the catalog row.
+                jobs = _packaged_jobs(package_dir)
+                declared = entry["jobs"]
+                if sorted(jobs) != declared:
+                    fail(
+                        f"samples.toml lists {declared} for {entry['slug']}, but "
+                        f"{ENTRY_FILE} declares {sorted(jobs)}"
+                    )
+                (job,) = declared
+                job_type = jobs[job].get("type") if isinstance(jobs[job], dict) else None
+                print(f"Packaged {entry['slug']} job {job!r} of type {job_type!r}.")
             finally:
                 shutil.rmtree(package_dir, ignore_errors=True)
 
-    # An unknown job exits 1 in the public command, so this packages every declared job
-    # through the same path a user takes and turns an incorrect jobs[] entry red.
     if checked == 0:
         print("Zero samples were checked.")
     else:

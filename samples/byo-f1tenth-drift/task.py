@@ -1,23 +1,21 @@
-"""Bring your own robot: publish an F1TENTH-compatible race car to your catalog, then
-train a drifting policy around a stadium-shaped track.
+"""Bring your own robot: the F1TENTH drift task that ``train.py`` trains.
 
 Like ``byo-urdf-arm``, this sample consumes an asset published to **your own
 organization's catalog**, never the Simulo catalog: ``robot/f1tenth:v1``, a 4WD,
 2-wheel-steer race car built from ``assets/robot/f1tenth/f1tenth.usd`` at the root of
 this repository. The reference carries no publisher segment, so it resolves against the
-organization you are signed in as. Publish the asset before you run this app;
+organization you are signed in as. Publish the asset before you run this sample;
 ``README.md`` next to this file has the command. A ``completed`` result from ``train``
 is proof the platform accepted your upload, validated it in the cloud, mounted the
 version you published, and trained a real drifting policy on it — not a scripted sweep,
 not a built-in.
 
-This sample has two jobs. ``train`` builds the same shape every training sample here
-uses — a module-level ``simulo.Task``, ``simulo.LearningEnv`` and ``simulo.RLTrainer``
-inside a ``@app.job``, a checkpoint saved to a durable ``simulo.Volume`` — then exports a
-TorchScript policy alongside the trainer's own checkpoint. ``rollout`` mirrors
-``cartpole-eval``'s inference-and-recording job: it plays the exported policy back with
-``simulo.RLPlayer`` and records an MCAP flight recording, with embedded video, through
-``simulo.RecordConfig``.
+This file holds the application, the task, and the training body, ``_train``.
+``train.py`` holds the one job you submit and calls ``_train``. It builds the same shape
+every training sample here uses: a module-level ``simulo.Task``, and
+``simulo.LearningEnv`` and ``simulo.RLTrainer`` inside a ``@app.job(type="train")``.
+Simulo saves the policy's ``best`` and ``latest`` checkpoints automatically. This file
+declares no job, so ``simulo run`` refuses it. Submit ``train.py`` instead.
 
 Ported task, from WheeledLab (an external open-source project)
 ----------------------------------------------------------------
@@ -80,29 +78,17 @@ rather than hidden:
   The trainer's own network architecture is fixed (``[256, 128, 64]``, also ELU), so this
   port trains with that fixed shape instead.
 
-The camera ``rollout`` uses (see ``build``) is a standalone, world-frame, top-down camera
-added directly to the scene rather than attached to any robot body — a link name on a car
+The task can also add a standalone, world-frame, top-down camera (see ``build``),
+added directly to the scene rather than attached to any robot body: a link name on a car
 you bring yourself is never known in advance, so this avoids guessing one a camera would
-silently fail to attach to.
-
-Run it
-------
-Sign in with ``simulo login``, publish ``assets/robot/f1tenth/``, then run each job in
-turn::
-
-    simulo run samples/byo-f1tenth-drift/app.py --job train --num-envs 256 --max-iterations 500
-    simulo run samples/byo-f1tenth-drift/app.py --job rollout --num-steps 300
-
-``--num-envs`` and ``--max-iterations`` are ``train``'s own parameters; ``--num-steps``
-is ``rollout``'s. See ``README.md`` for the publish command and what to expect from a
-run.
+silently fail to attach to. Training leaves it off. Playing a policy back to watch or
+record it arrives in a later Simulo release.
 """
 
 from __future__ import annotations
 
 import functools
 import math
-import os
 from typing import Any, Tuple
 
 import simulo
@@ -112,33 +98,21 @@ import simulo
 # are signed in as rather than against the Simulo catalog.
 f1tenth = simulo.Asset.from_registry("robot/f1tenth:v1")
 
-# Two named, durable volumes: one for the trained checkpoint and the exported policy,
-# one for the MCAP recording and the JSON rollout summary — the same split
-# ``cartpole-eval`` uses for its own train -> rollout lifecycle. These lines only
-# declare metadata; nothing is created at packaging time. Each job reads the volume's
-# real directory through ``.path``, which resolves only inside a running job.
-checkpoints = simulo.Volume.from_name("byo-f1tenth-drift-checkpoints", create_if_missing=True)
-reports = simulo.Volume.from_name("byo-f1tenth-drift-reports", create_if_missing=True)
-
 # Advanced: pick a different Simulo runtime with
 # App("name", runtime=simulo.Runtime.from_registry("simulo/gpu-rl:2026.06"));
 # see https://docs.simulo.ai/concepts/runtimes/.
-app = simulo.App("byo-f1tenth-drift", mounts={"/checkpoints": checkpoints, "/reports": reports})
+app = simulo.App("byo-f1tenth-drift")
 
 # The one heavy import, deferred: on your machine this block records the import
 # instead of resolving it; in the cloud it is a plain import.
 with app.runtime.imports():
     import torch  # noqa: F401  (resolved only when the job runs in the cloud)
 
-# Stable filenames inside the checkpoint volume, shared across the two jobs.
-_CHECKPOINT_FILE = "f1tenth_drift_final.pt"
-_POLICY_FILE = "f1tenth_drift_policy.pt"
-
 
 def _quat_rotate(quat: torch.Tensor, vec: torch.Tensor) -> torch.Tensor:
     """Rotate a per-env vector by a per-env quaternion (both wxyz, shape (num_envs, *)).
 
-    Same helper as ``samples/humanoid/app.py`` (duplicated per this repo's per-sample
+    Same helper as ``samples/humanoid/train.py`` (duplicated per this repo's per-sample
     convention rather than shared) — a plain typed module-level function, recursively
     compiled by ``torch.jit.script`` when called from an ``@app.runtime.torch_jit``
     kernel, and callable eagerly too.
@@ -365,10 +339,9 @@ class F1TenthDriftTask(simulo.Task):
     ``[throttle, steer]``. See the module docstring for the full reward/termination/
     domain-randomization shape and the documented gaps against upstream.
 
-    ``with_camera=True`` (the ``rollout`` job's env only) additionally adds a standalone,
-    world-frame, top-down camera framing the whole track, so the MCAP flight recording
-    carries a playable h264 video. Training keeps the default ``with_camera=False`` — no
-    camera prim, no render cost.
+    ``with_camera=True`` additionally adds a standalone, world-frame, top-down camera
+    framing the whole track, for playing a policy back once Simulo supports that.
+    Training keeps the default ``with_camera=False`` — no camera prim, no render cost.
     """
 
     observation_dim = 14
@@ -443,7 +416,7 @@ class F1TenthDriftTask(simulo.Task):
         self.robot = simulo.Robot(asset=f1tenth, initial_pose=simulo.Pose.identity())
         scene.add(self.robot, at="/World/Robot")
 
-        # Rollout-only: a standalone world-frame camera (not attached to any robot
+        # Playback-only: a standalone world-frame camera (not attached to any robot
         # body — see the module docstring's note on why) — a fixed top-down shot,
         # high enough to keep the whole stadium loop in frame regardless of where the
         # car is on the track. Not attached to the robot, so no ordering concern
@@ -671,12 +644,11 @@ class F1TenthDriftTask(simulo.Task):
 
 
 def _make_env(num_envs: int, *, camera: bool = False) -> Any:
-    """Construct the shared F1TENTH-drift environment (same simulation settings across
-    both jobs).
+    """Construct the F1TENTH-drift environment.
 
     ``env_spacing=7.0``: the stadium track's footprint (bounded by ``corner_out_radius``)
     spans roughly 4m x 5.6m per env, so envs need clearance well past that to avoid
-    neighboring tracks overlapping. ``camera=True`` (rollout only) adds the overhead
+    neighboring tracks overlapping. ``camera=True`` (playback only) adds the overhead
     Camera in ``build`` and passes ``enable_cameras=True``: the simulator refuses to
     spawn Camera sensors unless camera rendering is enabled, and this ``LearningEnv``
     argument is what wires that through, including headless offscreen rendering.
@@ -714,7 +686,7 @@ def _ppo_overrides() -> dict[str, Any]:
       learning rate pinned at 1e-3, the policy's own noise climbed monotonically and most
       runs ended in an all-NaN update; with the scheduler, the noise falls instead.
       Divergence is still intermittent — see the README's "What to expect" —
-      which is what the best-checkpoint export further down is for. The scheduler takes
+      which is what the automatically saved ``best`` checkpoint is for. The scheduler takes
       its threshold as a constructor keyword, and this trainer's ``agent_cfg`` cannot
       carry a nested keyword-arguments section for it, so it is bound with
       ``functools.partial``.
@@ -726,8 +698,8 @@ def _ppo_overrides() -> dict[str, Any]:
       scheduler's own reaction to an oversized update — collapsing the learning rate
       — comes too late once the policy has already moved that far; this guard
       measurably cut how often local testing ended in a non-finite update. A run can
-      still turn out poorly, which is what the best-checkpoint export further down
-      is for.
+      still turn out poorly, which is what the automatically saved ``best``
+      checkpoint is for.
     * ``rewards_shaper``: scale the reward the *agent* sees by 0.01. This task's episode
       return is a few tens of thousands (upstream's own reward weights), which the
       trainer's value function cannot fit without this scaling — its clipped value loss
@@ -755,18 +727,12 @@ def _ppo_overrides() -> dict[str, Any]:
     }
 
 
-# Retries are safe now that resumability exists: ResumableCheckpoint declares periodic
-# checkpoints (every 50 iterations) and resume defaults to "auto" — see cartpole's/
-# jetbot's identical comment on their own jobs.
-@app.job(
-    # Tier 1: T4 GPU, 16 GB VRAM. Run `simulo systems` for the full four-tier catalog.
-    system=simulo.SystemType.TIER_1,
-    timeout=8 * 60 * 60,
-    retries=2,
-    callbacks=[simulo.callbacks.ResumableCheckpoint(every=50)],
-)
-def train(num_envs: int = 256, max_iterations: int = 500) -> dict[str, Any]:
-    """Train the drift policy with PPO, then save the checkpoint AND export a JIT policy.
+def _train(num_envs: int = 256, max_iterations: int = 500) -> dict[str, Any]:
+    """Train the drift policy with PPO.
+
+    Simulo saves the policy's ``best`` and ``latest`` checkpoints automatically. ``best``
+    is the checkpoint with the highest mean episode reward at any save, so a late
+    divergence never replaces it.
 
     Args:
         num_envs: Number of parallel environments to simulate. 256 matches upstream's
@@ -775,18 +741,12 @@ def train(num_envs: int = 256, max_iterations: int = 500) -> dict[str, Any]:
             climb for a while and then diverge late in a run — see ``README.md``'s "What
             to expect" for measured numbers; the KL guard in ``_ppo_overrides`` cuts how
             often that happens without eliminating it. 500 is kept as the default
-            anyway, because this job exports the tracked best-so-far checkpoint rather
-            than the trainer's final state (see below), so a divergence never reaches
-            the returned artifacts, though an early one can still export a weaker
-            policy — ``rollout``'s recording is the way to check what a given run
-            actually produced, not ``best_reward`` in the result.
+            anyway, because the ``best`` checkpoint keeps the strongest policy the run
+            reached, though an early divergence can still leave a weaker one.
 
     Returns:
-        A JSON-serialisable dict: the saved ``checkpoint`` path, the exported ``policy``
-        path (verified finite before being returned — see below), whether
-        ``used_best_checkpoint`` (false only if no episode ever finished during
-        training, in which case both files are the trainer's final state), training
-        ``stats``, and the catalog reference the run trained against.
+        A JSON-serialisable dict: training ``stats`` and the catalog reference the run
+        trained against.
     """
     env = _make_env(num_envs)
     trainer = simulo.RLTrainer(
@@ -804,102 +764,8 @@ def train(num_envs: int = 256, max_iterations: int = 500) -> dict[str, Any]:
 
     stats = trainer.train(max_iterations=max_iterations)
 
-    # Load the trainer's own tracked BEST-so-far checkpoint before saving and
-    # exporting, not its live (i.e. final) state. This task's training can climb
-    # steadily for a while and then diverge late in a run (see README.md's "What
-    # to expect") — without this load-back, a late divergence would
-    # reach every artifact this job hands back, including the exported policy
-    # ``rollout`` plays.
-    checkpoint_dir = stats.get("checkpoint_dir")
-    best_source = os.path.join(checkpoint_dir, "best.pt") if checkpoint_dir else None
-    # Absent whenever no episode ever finished during training — a normal state, not
-    # an error, so this stays best-effort rather than asserting.
-    if best_source and os.path.isfile(best_source):
-        trainer.load(best_source)
-
-    checkpoint = f"{checkpoints.path}/{_CHECKPOINT_FILE}"
-    policy_path = f"{checkpoints.path}/{_POLICY_FILE}"
-    trainer.save(checkpoint)
-    trainer.export_policy(policy_path)
-
     # Close the trainer before the environment so the RL library releases its
-    # resources first. Deliberately BEFORE the finite-check below: that check only
-    # reads the file ``export_policy`` already wrote, needs neither the live trainer
-    # nor environment, and raising should never skip releasing resources this job
-    # already owns.
+    # resources first.
     trainer.close()
     env.close()
-
-    # Verify the exported policy is actually usable before returning: a non-finite
-    # weight would otherwise reach ``rollout`` silently and fail there instead of
-    # here, in the job that can still retry cheaply. ``torch.jit.load`` with no
-    # ``map_location`` restores the module onto the device it was saved on (this job
-    # always exports on "cuda", never CPU), so the probe tensor has to be built on
-    # that same device — otherwise this check fails on a device mismatch instead of
-    # the finiteness it exists to test.
-    probe = torch.jit.load(policy_path)
-    probe_action = probe(torch.zeros(1, F1TenthDriftTask.observation_dim, device="cuda"))
-    if not bool(torch.isfinite(probe_action).all()):
-        raise RuntimeError(
-            f"Exported policy at {policy_path} produced a non-finite action "
-            f"({probe_action.tolist()}) on an all-zero probe observation — refusing "
-            "to hand back a broken checkpoint. This can happen even after loading "
-            "the best-so-far checkpoint if no episode ever finished; rerun with "
-            "more iterations or a different seed."
-        )
-
-    return {
-        "checkpoint": checkpoint,
-        "policy": policy_path,
-        "used_best_checkpoint": bool(best_source and os.path.isfile(best_source)),
-        "num_envs": num_envs,
-        "robot_asset": "robot/f1tenth:v1",
-        **stats,
-    }
-
-
-# Tier 1: T4, 16 GB VRAM. See `simulo systems`.
-@app.job(system=simulo.SystemType.TIER_1, timeout=1 * 60 * 60)
-def rollout(num_steps: int = 300) -> dict[str, Any]:
-    """Play the exported policy with no trainer, and record the rollout to MCAP.
-
-    ``simulo.RLPlayer`` detects the TorchScript policy ``train`` exported (via
-    ``RLTrainer.export_policy``) and drives it directly. ``record=simulo.RecordConfig(...)``
-    captures the rollout to an MCAP flight recording in the report volume: policy
-    observations and actions, applied actions, rewards, terminations, episode
-    boundaries, and robot commands. Open it in Foxglove or Lichtblick, or read it with
-    the ``mcap`` library. With ``include_video=True`` and the overhead camera the task
-    adds for this job, the recording also carries a playable h264 video of the whole
-    loop on ``/sensors/camera/overhead_cam/video_foxglove``; add an Image panel on that
-    topic to watch the car drift. ``num_steps=300`` is one full 5 s episode at this
-    sample's 60 Hz action rate.
-    """
-    import json
-
-    policy_path = f"{checkpoints.path}/{_POLICY_FILE}"
-    mcap_path = f"{reports.path}/rollout.mcap"
-
-    env = _make_env(num_envs=1, camera=True)
-    # A TorchScript checkpoint makes the player run the policy directly, with no trainer.
-    player = simulo.RLPlayer(env=env, checkpoint=policy_path, device="cuda")
-    record = simulo.RecordConfig(
-        output_path=mcap_path,
-        policy_checkpoint=policy_path,
-        robot_model="f1tenth",
-        include_video=True,
-        video_fps=30,
-        video_bitrate="4M",  # plenty for a 640x480 overhead clip
-    )
-    stats = player.play(num_steps=num_steps, record=record)
-
-    player.close()
-    env.close()
-
-    summary = {"policy": policy_path, "mcap": mcap_path, **stats}
-
-    summary_path = f"{reports.path}/rollout_summary.json"
-    with open(summary_path, "w") as fh:
-        json.dump(summary, fh, indent=2)
-    print(f"[byo-f1tenth-drift] Wrote rollout summary to {summary_path}")
-
-    return {"summary": summary_path, **summary}
+    return {"num_envs": num_envs, "robot_asset": "robot/f1tenth:v1", **stats}

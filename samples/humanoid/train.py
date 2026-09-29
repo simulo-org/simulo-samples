@@ -34,7 +34,7 @@ Run it
 ------
 Sign in once with ``simulo login``, then::
 
-    simulo run samples/humanoid/app.py --num-envs 1024 --max-iterations 600
+    simulo run samples/humanoid/train.py --num-envs 1024 --max-iterations 600
 
 Use ``--num-envs 64 --max-iterations 2`` for a quick check that the job launches.
 """
@@ -48,16 +48,10 @@ import simulo
 # The humanoid robot: a version-pinned catalog reference.
 humanoid = simulo.Asset.from_registry("simulo/robot/humanoid:v1")
 
-# A named, durable, writable volume for the trained checkpoint. This line only
-# declares metadata; nothing is created at packaging time. The job reads the
-# volume's real directory through ``vol.path``, which resolves only inside a
-# running job.
-vol = simulo.Volume.from_name("humanoid-checkpoints", create_if_missing=True)
-
 # Advanced: pick a different Simulo runtime with
 # App("name", runtime=simulo.Runtime.from_registry("simulo/gpu-rl:2026.06"));
 # see https://docs.simulo.ai/concepts/runtimes/.
-app = simulo.App("humanoid", mounts={"/out": vol})
+app = simulo.App("humanoid")
 
 # The one heavy import, deferred: on your machine this block records the import
 # instead of resolving it; in the cloud it is a plain import.
@@ -293,18 +287,18 @@ class HumanoidTask(simulo.Task):
         self._prev_actions[env_ids] = 0.0
 
 
-# retries=2 is safe because ResumableCheckpoint saves every 50 iterations and
-# resume defaults to "auto": a retried or preempted run picks up from the latest
-# checkpoint instead of starting over.
+# retries=2 reruns the job after a failure. A training job saves its latest
+# checkpoint automatically every 50 iterations, and a rerun picks up from it
+# instead of starting over.
 @app.job(
+    type="train",
     # Tier 1: T4 GPU, 16 GB VRAM. Run `simulo systems` for the full four-tier catalog.
     system=simulo.SystemType.TIER_1,
     timeout=8 * 60 * 60,
     retries=2,
-    callbacks=[simulo.callbacks.ResumableCheckpoint(every=50)],
 )
 def train_humanoid(num_envs: int = 1024, max_iterations: int = 600) -> dict[str, Any]:
-    """Train the humanoid-walking policy with PPO and save the checkpoint.
+    """Train the humanoid-walking policy with PPO. Simulo saves its checkpoints automatically.
 
     Args:
         num_envs: Number of parallel environments to simulate. More environments give
@@ -314,8 +308,8 @@ def train_humanoid(num_envs: int = 1024, max_iterations: int = 600) -> dict[str,
             steadily without reaching a walking gait.
 
     Returns:
-        A JSON-serialisable dict: the saved ``checkpoint`` path inside the volume plus
-        training statistics such as ``iterations`` and ``best_reward``.
+        A JSON-serialisable dict of training statistics, such as ``iterations`` and
+        ``best_reward``.
     """
     env = simulo.LearningEnv(
         task=HumanoidTask(),
@@ -331,11 +325,8 @@ def train_humanoid(num_envs: int = 1024, max_iterations: int = 600) -> dict[str,
 
     stats = trainer.train(max_iterations=max_iterations)
 
-    checkpoint = f"{vol.path}/humanoid_final.pt"
-    trainer.save(checkpoint)
-
     # Close the trainer before the environment so the RL library releases its resources.
     trainer.close()
     env.close()
 
-    return {"checkpoint": checkpoint, "num_envs": num_envs, **stats}
+    return {"num_envs": num_envs, **stats}

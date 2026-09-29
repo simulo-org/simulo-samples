@@ -15,10 +15,34 @@ than an interface: there is no API here whose compatibility a semantic version c
 
 ### Changed
 
+- Every sample now uses the current client's one-job-per-file layout. `train.py` declares
+  the one training job, `@app.job(type="train")`, and you submit it with
+  `simulo run samples/<slug>/train.py`; `--job` no longer exists. Cartpole, Install a PyPI
+  dependency, and Bring your own F1TENTH-compatible car keep their application and task in
+  `task.py`, which `train.py` imports. The Cartpole job is now named `train`.
+- Training jobs save their policy's `best` and `latest` checkpoints automatically, so the
+  samples no longer declare checkpoint volumes or `ResumableCheckpoint`, and a job's result
+  no longer carries a checkpoint path. The READMEs use `simulo policy list`,
+  `simulo policy get <policy-id>:best`, `simulo export <policy-id>:best`, and
+  `simulo run ... --from <policy-id>:best` in place of `simulo models` and
+  `--from <job-id>`. Each sample trains exactly what it trained before; the runtimes and
+  results each README describes were recorded with an earlier client.
+- The structure check accepts `train.py` plus an optional `task.py`, requires each catalog
+  row to list exactly one job, and discovery compares that job with the one the client
+  packages from `train.py`.
 - Removed the declared Simulo client compatibility range. The samples are written for the
   latest client, installation upgrades to it, and a scheduled weekly check packages every
   declared job with the latest published client. The runtimes and results each sample
   describes were recorded with an earlier client.
+
+### Removed
+
+- Hello. Its job printed greetings and trained nothing, and the current client submits
+  only training jobs, which must save a checkpoint.
+- Cartpole Eval. Its evaluation and playback jobs cannot be submitted with the current
+  client.
+- The `rollout` job of Bring your own F1TENTH-compatible car, and with it the recorded
+  playback. Playing a policy back arrives in a later Simulo release.
 
 ### Fixed
 

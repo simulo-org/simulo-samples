@@ -1,42 +1,14 @@
 [[samples]]
-slug = "hello"
-title = "Hello"
-robot = "No robot"
-task = "Print a few greeting lines from a job and return a small JSON result."
-concepts = ["App and jobs", "job flags", "logs and results"]
-assets = []
-jobs = ["hello"]
-gpu = false
-difficulty = "introductory"
-learning_goal = "Submit a job and read its output"
-runtime_minutes = 1
-published = true
-
-[[samples]]
 slug = "cartpole"
 title = "Cartpole"
 robot = "Cartpole"
 task = "Train a PPO policy that balances a pole on a sliding cart."
-concepts = ["Task lifecycle", "LearningEnv and RLTrainer", "Volumes", "ResumableCheckpoint"]
+concepts = ["Task lifecycle", "LearningEnv and RLTrainer", "automatic checkpoints", "continuing with --from"]
 assets = ["simulo/robot/cartpole:v1"]
-jobs = ["train_cartpole"]
+jobs = ["train"]
 gpu = true
 difficulty = "introductory"
 learning_goal = "Train a policy"
-runtime_minutes = 2
-published = true
-
-[[samples]]
-slug = "cartpole-eval"
-title = "Cartpole Eval"
-robot = "Cartpole"
-task = "Train a policy, score it over several rounds, then play it back and record the rollout."
-concepts = ["Multiple jobs", "shared volumes", "policy export", "RLPlayer", "MCAP recording", "camera video"]
-assets = ["simulo/robot/cartpole:v1"]
-jobs = ["train", "evaluate", "rollout"]
-gpu = true
-difficulty = "intermediate"
-learning_goal = "Evaluate and record a policy"
 runtime_minutes = 2
 published = true
 
@@ -115,9 +87,9 @@ slug = "byo-f1tenth-drift"
 title = "Bring your own F1TENTH-compatible car"
 robot = "Your own F1TENTH-compatible race car"
 task = "Publish an F1TENTH-compatible USD race car to your organization's catalog, then train a drifting policy around a stadium-shaped track."
-concepts = ["simulo asset publish", "organization catalog", "USD robots", "4WD steering", "multi-term rewards", "best-checkpoint export", "RLPlayer", "MCAP recording"]
+concepts = ["simulo asset publish", "organization catalog", "USD robots", "4WD steering", "multi-term rewards", "best checkpoints"]
 assets = ["robot/f1tenth:v1"]
-jobs = ["train", "rollout"]
+jobs = ["train"]
 gpu = true
 difficulty = "intermediate"
 learning_goal = "Bring your own robot"

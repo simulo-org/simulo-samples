@@ -37,8 +37,11 @@ deferred alongside `torch`, and why a reward that calls into a CPU library canno
 
 ## Files and APIs
 
-- `app.py`: the runtime declaration, a quaternion helper, the shapely reward, the task, and the
-  `train` job.
+- `task.py`: the runtime declaration, the application, a quaternion helper, the shapely reward,
+  and the task. It declares no job.
+- `train.py`: the one job you submit, `train`. It reads `DEMO_ZONE_CENTER_X`, trains the task,
+  and is declared with `@app.job(type="train", ...)`, so it saves the policy's `best` and
+  `latest` checkpoints automatically.
 - `.simuloignore`: files `simulo run` leaves out of the uploaded package.
 
 Simulo names it uses, beyond those in the `jetbot` sample:
@@ -51,7 +54,7 @@ Simulo names it uses, beyond those in the `jetbot` sample:
       .pip_install("shapely")
       .env({"DEMO_ZONE_CENTER_X": "2.5"})
   )
-  app = simulo.App("pip-install-shapely", mounts={"/out": vol}, runtime=runtime)
+  app = simulo.App("pip-install-shapely", runtime=runtime)
   ```
 - `with app.runtime.imports():` around both `import torch` and
   `from shapely.geometry import Point, Polygon`.
@@ -63,7 +66,7 @@ Simulo names it uses, beyond those in the `jetbot` sample:
 
 ```bash
 simulo login
-simulo run samples/pip-install-shapely/app.py --num-envs 64 --max-iterations 300
+simulo run samples/pip-install-shapely/train.py --num-envs 64 --max-iterations 300
 ```
 
 For a quick check that the job launches, use `--num-envs 8 --max-iterations 2`. Add `--detach` to
@@ -93,19 +96,23 @@ With the default centre X of 2.5, the one-metre square spans X=2.0 to 3.0 and Y=
 each environment's local frame. Reset jitter is at most 0.3 m per axis. Both come straight from
 the source, so you can read them off `_target_zone_vertices` and the reset code.
 
-The result names the checkpoint the job saved into its volume, plus `iterations`, `best_reward`,
-and checkpoint bookkeeping fields. The full run takes about three minutes at the defaults once capacity is free; a first
+The result holds `num_envs` and training statistics such as `iterations`, `best_reward`, and
+checkpoint bookkeeping fields. The full run takes about three minutes at the defaults once capacity is free; a first
 run can take longer while the cloud prepares the runtime, including installing shapely.
 
 ## Inspecting results
 
 ```bash
-simulo jobs                  # status
-simulo logs --follow         # the [demo] line, then training progress
-simulo result                # checkpoint, num_envs, iterations, best_reward
-simulo models                # best.pt and latest.pt uploaded by ResumableCheckpoint
-simulo cancel <job-id>        # stop a queued or running job
+simulo jobs                          # status, job IDs, and each job's policy
+simulo logs --follow                 # the [demo] line, then training progress
+simulo result                        # num_envs, iterations, best_reward
+simulo policy list                   # your policies and their checkpoints
+simulo policy get <policy-id>:best   # download the best checkpoint, digest-verified
+simulo cancel <job-id>               # stop a queued or running job
 ```
+
+Every training job makes one policy, whose ID is the job's ID with a `policy_` prefix in place of
+`job_`; the training job saves its `best` and `latest` checkpoints automatically.
 
 `simulo logs --from-start` shows the `[demo]` line if it has scrolled out of the tail. The
 `[demo]` prefix is the exact string the code emits. Stopping a log-follow session only detaches

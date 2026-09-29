@@ -1,31 +1,31 @@
-"""Cartpole: train a pole-balancing policy with PPO.
+"""Cartpole: the task that ``train.py`` trains.
 
 A cart slides along a rail with a pole hinged on top. The policy learns to keep the
 pole upright by pushing the cart left or right. This is the core Simulo training shape,
 and every other training sample in this repository follows it: a ``simulo.Task``
 describes the problem, ``simulo.LearningEnv`` runs thousands of copies of it in
-parallel on a GPU, ``simulo.RLTrainer`` trains a policy, and the checkpoint lands in a
-durable ``simulo.Volume``.
+parallel on a GPU, and ``simulo.RLTrainer`` trains a policy. The training job saves
+the policy's ``best`` and ``latest`` checkpoints automatically.
 
-What this sample shows
-----------------------
+This file holds the application and the task. ``train.py`` holds the one job you
+submit, and imports both from here. Keeping the task in its own file lets another job
+file reuse it without copying it.
+
+What this file shows
+--------------------
 * A ``simulo.Task`` subclass with the full lifecycle: ``build`` declares the scene,
   ``on_start`` resolves joint indices, and ``get_observations``, ``get_rewards``,
   ``get_dones``, ``apply_actions``, and ``reset_idx`` run every step or reset.
 * The robot uses a version-pinned catalog reference
   (``simulo/robot/cartpole:v1``), so every run resolves the same model version.
-* ``simulo.callbacks.ResumableCheckpoint(every=50)`` saves a checkpoint every 50
-  iterations. That is what makes ``retries=2`` safe: a retried or preempted run resumes
-  from its latest checkpoint instead of starting over. It is also what publishes the
-  ``best.pt`` and ``latest.pt`` files you download with ``simulo models``.
 * Observation (4 values): pole angle, pole angular velocity, cart position, cart
   velocity. Action (1 value): a scaled horizontal force on the cart.
 
 How the file is written, and why
 --------------------------------
-``simulo run`` imports this file on your machine, where no GPU and no ``torch`` are
-installed, and only the Simulo cloud executes the job body. Four habits keep the file
-importable in both places:
+``simulo run`` imports ``train.py``, and through it this file, on your machine, where
+no GPU and no ``torch`` are installed, and only the Simulo cloud executes the job body.
+Four habits keep the file importable in both places:
 
 * ``from __future__ import annotations`` turns every annotation into a string, so
   ``-> torch.Tensor`` never needs ``torch`` at import time.
@@ -36,20 +36,13 @@ importable in both places:
 * The task class is defined at module level. Its method bodies use ``torch`` and the
   live robot, and none of them run at submit time.
 
-Run it
-------
-Sign in once with ``simulo login``, then::
-
-    simulo run samples/cartpole/app.py --num-envs 4096 --max-iterations 200
-
-``--num-envs`` and ``--max-iterations`` are ``train_cartpole``'s own parameters. Use
-``--num-envs 64 --max-iterations 2`` for a quick check that the job launches.
+This file declares no job, so ``simulo run`` refuses it. Submit ``train.py`` instead.
 """
 
 from __future__ import annotations
 
 import math
-from typing import Any, Tuple
+from typing import Tuple
 
 import simulo
 
@@ -58,16 +51,10 @@ import simulo
 # the job; the cloud mounts it read-only and the task below uses the same handle.
 cartpole = simulo.Asset.from_registry("simulo/robot/cartpole:v1")
 
-# A named, durable, writable volume for the trained checkpoint. This line only
-# declares metadata; nothing is created at packaging time. The job reads the
-# volume's real directory through ``vol.path``, which resolves only inside a
-# running job, never through the ``/out`` mount point declared below.
-vol = simulo.Volume.from_name("cartpole-checkpoints", create_if_missing=True)
-
 # Advanced: pick a different Simulo runtime with
 # App("name", runtime=simulo.Runtime.from_registry("simulo/gpu-rl:2026.06"));
 # see https://docs.simulo.ai/concepts/runtimes/.
-app = simulo.App("cartpole", mounts={"/out": vol})
+app = simulo.App("cartpole")
 
 # The one heavy import, deferred: on your machine this block records the import
 # instead of resolving it; in the cloud it is a plain import.
@@ -221,55 +208,3 @@ class CartpoleTask(simulo.Task):
         # this call and nothing needs to be written into them directly.
         joint_vel = self.robot.internals.default_joint_vel[env_ids]
         self.robot.set_joint_state(joint_pos, velocities=joint_vel, env_ids=env_ids)
-
-
-# retries=2 is safe because ResumableCheckpoint saves every 50 iterations and
-# resume defaults to "auto": a retried or preempted run picks up from the latest
-# checkpoint instead of starting over. The job body below needs no changes.
-@app.job(
-    # Tier 1: T4 GPU, 16 GB VRAM. Run `simulo systems` for the full four-tier catalog.
-    system=simulo.SystemType.TIER_1,
-    timeout=8 * 60 * 60,
-    retries=2,
-    # Each save updates latest.pt in place; keep_last=N also retains numbered
-    # iter_<n>.pt copies.
-    callbacks=[simulo.callbacks.ResumableCheckpoint(every=50)],
-)
-def train_cartpole(num_envs: int = 4096, max_iterations: int = 200) -> dict[str, Any]:
-    """Train a cartpole-balancing policy with PPO and save the checkpoint.
-
-    Everything here runs in the Simulo cloud: ``simulo.LearningEnv`` builds ``num_envs``
-    parallel copies of ``CartpoleTask`` on the GPU and ``simulo.RLTrainer`` trains a PPO
-    policy against them.
-
-    Args:
-        num_envs: Number of parallel environments to simulate.
-        max_iterations: Number of PPO policy-update iterations.
-
-    Returns:
-        A JSON-serialisable dict: the saved ``checkpoint`` path inside the volume plus
-        training statistics such as ``iterations`` and ``best_reward``.
-    """
-    env = simulo.LearningEnv(
-        task=CartpoleTask(),
-        num_envs=num_envs,
-        device="cuda",
-        dt=1.0 / 120.0,
-        physics_steps_per_action=2,
-        env_spacing=4.0,
-        headless=True,
-        seed=42,
-    )
-    trainer = simulo.RLTrainer(env=env, algorithm="PPO", device="cuda", seed=42)
-
-    stats = trainer.train(max_iterations=max_iterations)
-
-    # Save the trained policy into the durable volume (vol.path resolves inside the job).
-    checkpoint = f"{vol.path}/cartpole_final.pt"
-    trainer.save(checkpoint)
-
-    # Close the trainer before the environment so the RL library releases its resources.
-    trainer.close()
-    env.close()
-
-    return {"checkpoint": checkpoint, "num_envs": num_envs, **stats}

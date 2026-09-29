@@ -33,7 +33,7 @@ Run it
 ------
 Sign in once with ``simulo login``, then::
 
-    simulo run samples/franka-reach/app.py --num-envs 2048 --max-iterations 300
+    simulo run samples/franka-reach/train.py --num-envs 2048 --max-iterations 300
 
 Use ``--num-envs 64 --max-iterations 2`` for a quick check that the job launches.
 """
@@ -48,10 +48,7 @@ import simulo
 # Declared at module level so `simulo run` records this exact version with the job.
 franka = simulo.Asset.from_registry("simulo/robot/franka-panda:v1")
 
-# A named, durable, writable volume for the trained checkpoint.
-vol = simulo.Volume.from_name("franka-reach-checkpoints", create_if_missing=True)
-
-app = simulo.App("franka-reach", mounts={"/out": vol})
+app = simulo.App("franka-reach")
 
 # The one heavy import, deferred until the job runs in the cloud.
 with app.runtime.imports():
@@ -319,22 +316,22 @@ class FrankaReachTask(simulo.Task):
 
 
 @app.job(
+    type="train",
     # Tier 1: T4 GPU, 16 GB VRAM. Run `simulo systems` for the full four-tier catalog.
     system=simulo.SystemType.TIER_1,
     timeout=4 * 60 * 60,
     retries=2,
-    callbacks=[simulo.callbacks.ResumableCheckpoint(every=50)],
 )
 def train_franka_reach(num_envs: int = 2048, max_iterations: int = 300) -> dict[str, Any]:
-    """Train a task-space reaching policy with PPO and save the checkpoint.
+    """Train a task-space reaching policy with PPO. Simulo saves its checkpoints automatically.
 
     Args:
         num_envs: Number of parallel environments to simulate.
         max_iterations: Number of PPO policy-update iterations.
 
     Returns:
-        A JSON-serialisable dict: the saved ``checkpoint`` path inside the volume plus
-        training statistics such as ``iterations`` and ``best_reward``.
+        A JSON-serialisable dict of training statistics, such as ``iterations`` and
+        ``best_reward``.
 
     Raises:
         ValueError: If ``num_envs`` or ``max_iterations`` is not a positive
@@ -361,12 +358,9 @@ def train_franka_reach(num_envs: int = 2048, max_iterations: int = 300) -> dict[
 
     stats = trainer.train(max_iterations=max_iterations)
 
-    checkpoint = f"{vol.path}/franka_reach_final.pt"
-    trainer.save(checkpoint)
-
     # Close the trainer before the environment so the RL library releases its
     # resources first.
     trainer.close()
     env.close()
 
-    return {"checkpoint": checkpoint, "num_envs": num_envs, **stats}
+    return {"num_envs": num_envs, **stats}

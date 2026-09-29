@@ -5,7 +5,7 @@
 # The README is documentation, not part of the job's source.
 README.md
 
-# Saved models and exported policies live in a Volume, never in the package.
+# Checkpoints and exported policies belong to a policy in the Simulo cloud, never in the package.
 *.pt
 *.pth
 *.ckpt

@@ -9,7 +9,11 @@ select = ["E", "F", "I", "UP", "B"]
 # that would demand it are off for the samples only. Docstrings and comments are
 # unaffected.
 [lint.per-file-ignores]
-"samples/*/app.py" = ["UP006", "UP035"]
+"samples/*/*.py" = ["UP006", "UP035"]
+
+# A sample's train.py imports its application and task from task.py next to it.
+[lint.isort]
+known-first-party = ["task"]
 
 [format]
 quote-style = "double"

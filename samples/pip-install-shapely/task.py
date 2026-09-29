@@ -1,4 +1,4 @@
-"""Install a PyPI dependency: bring Shapely into a Simulo reward.
+"""Install a PyPI dependency: the task that ``train.py`` trains, with a Shapely reward.
 
 The other training samples in this repository compute their rewards with plain tensor
 math. The base runtime includes ``torch``, ``numpy``, and the scientific Python stack,
@@ -52,31 +52,21 @@ command; here the zone is fixed, so the diversity has to come from the spawn.
 
 The defaults are starting points, not a measured convergence calibration.
 
-Run it
-------
-Sign in once with ``simulo login``, then::
-
-    simulo run samples/pip-install-shapely/app.py --num-envs 64 --max-iterations 300
-
-Training starts once the runtime and catalog asset are prepared. A cache miss can
-delay the first log line on any run.
+Files
+-----
+This file holds the application, its runtime, and the task. ``train.py`` holds the one
+job you submit, and imports ``app`` and ``ShapelyZoneTask`` from here. This file
+declares no job, so ``simulo run`` refuses it. Submit ``train.py`` instead.
 """
 
 from __future__ import annotations
 
-import os
-from typing import Any, Tuple
+from typing import Tuple
 
 import simulo
 
 # The JetBot robot: the same version-pinned catalog asset the ``jetbot`` sample trains.
 jetbot = simulo.Asset.from_registry("simulo/robot/jetbot:v2")
-
-# A named, durable, writable volume for the trained checkpoint. This line only
-# declares metadata; nothing is created at packaging time. The job reads the
-# volume's real directory through ``vol.path``, which resolves only inside a
-# running job.
-vol = simulo.Volume.from_name("pip-install-shapely-checkpoints", create_if_missing=True)
 
 # The point of this app: layer BOTH Runtime extras onto the base Simulo runtime;
 # see https://docs.simulo.ai/concepts/runtimes/. pip_install("shapely") adds the third-party
@@ -90,7 +80,7 @@ runtime = (
     .pip_install("shapely")
     .env({"DEMO_ZONE_CENTER_X": "2.5"})
 )
-app = simulo.App("pip-install-shapely", mounts={"/out": vol}, runtime=runtime)
+app = simulo.App("pip-install-shapely", runtime=runtime)
 
 # The heavy AND the third-party imports, both deferred: on your machine this block
 # records them instead of resolving them; in the cloud they are plain imports.
@@ -106,7 +96,7 @@ with app.runtime.imports():
 # floats, no shapely needed to declare them. The real ``shapely.geometry.Polygon``
 # is only constructed in ``on_start`` below, inside the running job. ``center_x``
 # comes from ``DEMO_ZONE_CENTER_X`` (set via this app's ``Runtime.env()`` above,
-# read in ``train`` and passed to ``ShapelyZoneTask``; see both below); the
+# read in ``train.py`` and passed to ``ShapelyZoneTask`` below); the
 # zone stays a fixed 1.0 m by 1.0 m square centred on that X, directly ahead of
 # the robot's default spawn heading (+X, see Pose.identity() below) so a
 # converged policy mostly just has to drive forward. The default,
@@ -176,7 +166,7 @@ class ShapelyZoneTask(simulo.Task):
     right wheel angular velocity.
 
     ``zone_center_x`` is the target-zone centre read from the environment (the
-    module-level ``train`` job reads ``DEMO_ZONE_CENTER_X`` from ``os.environ`` and
+    ``train`` job in ``train.py`` reads ``DEMO_ZONE_CENTER_X`` from ``os.environ`` and
     passes it here). It defaults to ``2.5`` to match this task's own reachability
     numbers when unset.
     """
@@ -298,63 +288,3 @@ class ShapelyZoneTask(simulo.Task):
         pose[:, 3] = torch.cos(half_yaw)  # qw
         pose[:, 6] = torch.sin(half_yaw)  # qz: pure yaw rotation about world Z
         self.robot.set_root_pose(pose, env_ids=env_ids)
-
-
-# retries=2 is safe because ResumableCheckpoint saves every 50 iterations and
-# resume defaults to "auto": a retried or preempted run picks up from the latest
-# checkpoint instead of starting over.
-@app.job(
-    # Tier 1: T4 GPU, 16 GB VRAM. Run `simulo systems` for the full four-tier catalog.
-    system=simulo.SystemType.TIER_1,
-    timeout=8 * 60 * 60,
-    retries=2,
-    callbacks=[simulo.callbacks.ResumableCheckpoint(every=50)],
-)
-def train(num_envs: int = 64, max_iterations: int = 300) -> dict[str, Any]:
-    """Train the shapely target-zone JetBot policy with PPO and save the checkpoint.
-
-    Reads ``DEMO_ZONE_CENTER_X`` from ``os.environ`` at job start and logs it. Simulo
-    applies this app's ``Runtime.env({"DEMO_ZONE_CENTER_X": "2.5"})`` layer to the job's
-    environment before the body runs, so the printed line is the job-log proof that
-    ``env()`` reached the job, not just that submit recorded it. The value positions the
-    target zone ``ShapelyZoneTask`` drives the robot into; see ``_target_zone_vertices``.
-
-    Args:
-        num_envs: Number of parallel environments to simulate. Kept modest (64) by
-            default: this app's point is showing that ``pip_install("shapely")`` works
-            end to end in a real job, not maximising throughput.
-        max_iterations: Number of PPO policy-update iterations.
-
-    Returns:
-        A JSON-serialisable dict: the saved ``checkpoint`` path inside the volume plus
-        training statistics such as ``iterations`` and ``best_reward``.
-    """
-    zone_center_x = float(os.environ.get("DEMO_ZONE_CENTER_X", "2.5"))
-    print(f"[demo] target-zone center X from Runtime.env(): {zone_center_x}")
-
-    env = simulo.LearningEnv(
-        task=ShapelyZoneTask(zone_center_x=zone_center_x),
-        num_envs=num_envs,
-        device="cuda",
-        dt=1.0 / 120.0,
-        physics_steps_per_action=2,
-        # Wider than jetbot's 2.0: the target zone reaches out to 3.0 m ahead of
-        # each env's spawn point (plus spawn jitter and manoeuvring room), so
-        # the grid cell needs more clearance. See "Why the zone is reachable" in
-        # the module docstring for the zone's exact offset.
-        env_spacing=8.0,
-        headless=True,
-        seed=42,
-    )
-    trainer = simulo.RLTrainer(env=env, algorithm="PPO", device="cuda", seed=42)
-
-    stats = trainer.train(max_iterations=max_iterations)
-
-    checkpoint = f"{vol.path}/pip_install_shapely_final.pt"
-    trainer.save(checkpoint)
-
-    # Close the trainer before the environment so the RL library releases its resources.
-    trainer.close()
-    env.close()
-
-    return {"checkpoint": checkpoint, "num_envs": num_envs, **stats}
