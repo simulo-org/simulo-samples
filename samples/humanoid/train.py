@@ -202,7 +202,7 @@ class HumanoidTask(simulo.Task):
             at="/World",
             per_environment=False,
         )
-        self.robot = simulo.Robot(asset=humanoid, initial_pose=simulo.Pose.identity())
+        self.robot = simulo.Robot(asset=humanoid, initial_pose=simulo.Pose.from_xyz(0.0, 0.0, 1.34))
         scene.add(self.robot, at="/World/Robot")
 
     def on_start(self, env: simulo.LearningEnv) -> None:
