@@ -31,7 +31,7 @@ a fresh goal for each.
 - `task.py`: the application, reward kernel, and Franka reach task.
 - `train.py`: the `train_franka_reach` job, declared with `@app.job(type="train", ...)`,
   which saves the policy's `best` and `latest` checkpoints automatically.
-- `eval.py`: the evaluation job and its hand-to-target success rule.
+- `eval.py`: the evaluation job and its hand-to-goal success rule.
 - `.simuloignore`: files `simulo run` leaves out of the uploaded package.
 
 Simulo names it uses, beyond those in the [Cartpole](../cartpole/) sample:

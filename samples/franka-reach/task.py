@@ -36,6 +36,8 @@ Sign in once with ``simulo login``, then::
     simulo run samples/franka-reach/train.py --num-envs 2048 --max-iterations 300
 
 Use ``--num-envs 64 --max-iterations 2`` for a quick check that the job launches.
+
+This file declares no job; submit ``train.py``.
 """
 
 from __future__ import annotations

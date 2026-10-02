@@ -19,9 +19,9 @@ than an interface: there is no API here whose compatibility a semantic version c
 
 - Every sample now uses the current client's one-job-per-file layout. `train.py` declares
   the one training job, `@app.job(type="train")`, and you submit it with
-  `simulo run samples/<slug>/train.py`; `--job` no longer exists. Cartpole, Install a PyPI
-  dependency, and Bring your own F1TENTH-compatible car keep their application and task in
-  `task.py`, which `train.py` imports. The Cartpole job is now named `train`.
+  `simulo run samples/<slug>/train.py`; `--job` no longer exists. Every sample now keeps
+  its application and task in `task.py`, which `train.py` and `eval.py` import. JetBot,
+  Humanoid, Franka reach, and Bring your own URDF arm moved theirs out of `train.py`. The Cartpole job is now named `train`.
 - Training jobs save their policy's `best` and `latest` checkpoints automatically, so the
   samples no longer declare checkpoint volumes or `ResumableCheckpoint`, and a job's result
   no longer carries a checkpoint path. The READMEs use `simulo policy list`,
@@ -41,8 +41,7 @@ than an interface: there is no API here whose compatibility a semantic version c
 
 ### Removed
 
-- Hello. Its job printed greetings and trained nothing, and the current client submits
-  only training jobs, which must save a checkpoint.
+- Hello. Its job printed greetings, trained nothing, and saved no checkpoint.
 - Cartpole Eval. Its old evaluation and playback jobs are removed; `eval.py` beside every
   training sample now provides policy evaluation.
 - The `rollout` job of Bring your own F1TENTH-compatible car, and with it the recorded

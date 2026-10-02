@@ -33,7 +33,7 @@ may have a quiet period after it reports `running`.
 - `task.py`: the application, quaternion helper, reward kernel, and JetBot task.
 - `train.py`: the `train_jetbot` job, declared with `@app.job(type="train", ...)`, which
   saves the policy's `best` and `latest` checkpoints automatically.
-- `eval.py`: the evaluation job and its sustained-movement success rule.
+- `eval.py`: the evaluation job and its commanded-direction success rule.
 - `.simuloignore`: files `simulo run` leaves out of the uploaded package.
 
 Simulo names it uses, beyond those in the `cartpole` sample:

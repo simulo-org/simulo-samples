@@ -48,7 +48,7 @@ those names up, so a robot of your own with different joint names needs the name
 - `task.py`: the application, reward kernel, and three-joint arm task.
 - `train.py`: the `train` job, declared with `@app.job(type="train", ...)`, which saves the
   policy's `best` and `latest` checkpoints automatically.
-- `eval.py`: the evaluation job and its stable-completion success rule.
+- `eval.py`: the evaluation job and its joint-target success rule.
 - `.simuloignore`: files `simulo run` leaves out of the uploaded package.
 - `../../assets/robot/byo-urdf-arm/robot.urdf`: the robot description. Its
   `<mesh filename="meshes/...">` references resolve relative to the URDF.

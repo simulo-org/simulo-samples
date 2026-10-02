@@ -3,7 +3,7 @@
 This repository collects runnable Simulo robotics projects for engineers learning how to
 define cloud simulation and reinforcement learning jobs. Each sample is a small application
 that you submit with the Simulo client. A sample's `train.py` declares the one training job
-you submit, and a sample that keeps its task separate puts it in `task.py` next to it. Every
+you submit, and its task lives in `task.py` next to it. Every
 training sample also has an `eval.py` that measures a saved policy against that sample's rule.
 
 ## Prerequisites and compatibility
