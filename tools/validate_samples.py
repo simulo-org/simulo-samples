@@ -477,6 +477,12 @@ def discover(entries: list[dict[str, Any]]) -> None:
                     )
                     # An offline client cannot resolve a checkpoint, so evaluation stops after
                     # discovery and packaging. The manifest still proves the declared eval job.
+                    checkpoint_refusal = "needs a cloud control plane to resolve the checkpoint"
+                    if result.returncode != 1 or checkpoint_refusal not in result.stderr:
+                        fail(
+                            f"discovery failed for {entry['slug']}/{EVAL_FILE} with exit "
+                            f"{result.returncode}: {result.stderr.strip() or result.stdout.strip()}"
+                        )
                     jobs = _packaged_jobs(package_dir)
                     job_types = [
                         job.get("type") if isinstance(job, dict) else None for job in jobs.values()
@@ -486,9 +492,9 @@ def discover(entries: list[dict[str, Any]]) -> None:
                             f"{entry['slug']}/{EVAL_FILE} must declare one eval job, "
                             f"found {job_types}"
                         )
-                    outcome = "completed" if result.returncode == 0 else "stopped after packaging"
                     print(
-                        f"Packaged {entry['slug']} evaluation job {next(iter(jobs))!r}; {outcome}."
+                        f"Packaged {entry['slug']} evaluation job {next(iter(jobs))!r}; "
+                        "stopped at checkpoint resolution."
                     )
                 finally:
                     shutil.rmtree(package_dir, ignore_errors=True)

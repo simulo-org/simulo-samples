@@ -58,13 +58,15 @@ an absolute billing ceiling. Run `simulo cancel <job-id>` to stop a queued or ru
 
 ### Evaluate
 
-From this sample directory, use `simulo policy list` to find the policy id, then run:
+From the repository root, use `simulo policy list` to find the policy id, then run:
 
 ```bash
-simulo run eval.py --policy policy_<id>:best
+simulo run samples/humanoid/eval.py --policy <policy-id>:best
 ```
 
-The rule checks that the robot stays upright to the time limit and moves forward at least 0.1 m/s.
+The rule checks that the robot stays upright to the time limit and covers at least 1 m forward over
+the episode. The default run is expected to fail the forward check: its reward encourages heading,
+upright posture, and efficiency, but does not reward forward displacement.
 
 <!-- REPORT EXCERPT: filled after the GPU run -->
 ```text

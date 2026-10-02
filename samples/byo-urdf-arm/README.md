@@ -108,13 +108,14 @@ Run `simulo cancel <job-id>` to stop a queued or running job.
 
 ### Evaluate
 
-From this sample directory, use `simulo policy list` to find the policy id, then run:
+From the repository root, use `simulo policy list` to find the policy id, then run:
 
 ```bash
-simulo run eval.py --policy policy_<id>:best
+simulo run samples/byo-urdf-arm/eval.py --policy <policy-id>:best
 ```
 
-The rule checks that the arm completes the 5-second episode and settles below 0.1 rad/s.
+The rule checks that every joint is within 0.1 rad of its target and that the arm settles below
+0.1 rad/s.
 
 <!-- REPORT EXCERPT: filled after the GPU run -->
 ```text

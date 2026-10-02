@@ -21,6 +21,6 @@ def evaluate(
 
 @app.success
 def reached(task):
-    """Count an episode when the hand finishes close to its target."""
+    """Count an episode when the hand finishes close to its goal."""
     hand, _ = task.robot.get_body_pose_in_base_frame("panda_hand")
-    return task.check("hand within 5 cm of the target", (hand - task.goal_pos).norm(dim=-1) < 0.05)
+    return task.check("hand within 5 cm of the goal", (hand - task.goal_pos).norm(dim=-1) < 0.05)

@@ -65,8 +65,8 @@ fleet, so a first run can sit `queued` for a while. A training job saves its pol
 `simulo run samples/cartpole/train.py --max-iterations 400 --from <policy-id>:best` continues
 training from one, with `--max-iterations` read as the new total.
 
-After training, change into a sample directory and evaluate its saved checkpoint with
-`simulo run eval.py --policy policy_<id>:best`; `simulo policy list` supplies the policy id.
+After training, run `simulo policy list` from the repository root to find the policy id, then
+evaluate its saved checkpoint with `simulo run samples/cartpole/eval.py --policy <policy-id>:best`.
 
 Each sample README explains its prerequisites, assets, expected results, and runtime.
 

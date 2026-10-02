@@ -37,6 +37,8 @@ Sign in once with ``simulo login``, then::
 
     simulo run samples/jetbot/train.py
 
+This file declares no job; submit ``train.py``.
+
 Use ``--max-iterations 2`` for a quick check that the job launches. What bounds
 ``--num-envs`` is memory, and the bound is per app rather than per tier -- the other
 samples ship much larger defaults.
@@ -190,8 +192,3 @@ class JetbotTask(simulo.Task):
         self.commands[env_ids, 0] = torch.cos(angles)
         self.commands[env_ids, 1] = torch.sin(angles)
         self.commands[env_ids, 2] = 0.0
-
-
-# retries=2 reruns the job after a failure. A training job saves its latest
-# checkpoint automatically every 50 iterations, and a rerun picks up from it
-# instead of starting over.

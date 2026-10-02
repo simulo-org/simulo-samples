@@ -67,6 +67,7 @@ spawns clipping into or floating above the ground.
 - `train.py`: the one job you submit, `train`, which calls `_train`. It is declared with
   `@app.job(type="train", ...)`, so it saves the policy's `best` and `latest` checkpoints
   automatically.
+- `eval.py`: the evaluation job and its on-track, moving, counter-clockwise success rule.
 - `.simuloignore`: files `simulo run` leaves out of the uploaded package.
 - `../../assets/robot/f1tenth/f1tenth.usd`: the race-car asset.
 
@@ -148,13 +149,14 @@ simulo cancel <job-id>
 
 ### Evaluate
 
-From this sample directory, use `simulo policy list` to find the policy id, then run:
+From the repository root, use `simulo policy list` to find the policy id, then run:
 
 ```bash
-simulo run eval.py --policy policy_<id>:best
+simulo run samples/byo-f1tenth-drift/eval.py --policy <policy-id>:best
 ```
 
-The rule checks that the car stays on the track for 5 seconds and is moving at least 1 m/s.
+The rule checks that the car stays on the track for 5 seconds, moves at least 1 m/s, and travels
+counter-clockwise.
 
 <!-- REPORT EXCERPT: filled after the GPU run -->
 ```text

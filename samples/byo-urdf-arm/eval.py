@@ -1,4 +1,4 @@
-"""Evaluate a three-joint arm policy through a stable complete episode."""
+"""Evaluate a three-joint arm policy by its target accuracy and stability."""
 
 from __future__ import annotations
 
@@ -21,10 +21,18 @@ def evaluate(
 
 @app.success
 def completed_stably(task):
-    """Count an episode when the arm reaches the time limit without moving quickly."""
-    lasted = task.check("lasted to the 5 s time limit", task.survived())
+    """Count an episode when every joint reaches its target and settles."""
+    joint_ids = (
+        task.robot.find_joints("shoulder_pan")
+        + task.robot.find_joints("shoulder_lift")
+        + task.robot.find_joints("elbow")
+    )
+    reached_target = task.check(
+        "every joint within 0.1 rad of its target",
+        (task.robot.state.joint_positions[:, joint_ids] - task.target).abs().amax(dim=-1) < 0.1,
+    )
     settled = task.check(
         "arm settled below 0.1 rad/s",
-        task.robot.state.joint_velocities.norm(dim=-1) < 0.1,
+        task.robot.state.joint_velocities[:, joint_ids].norm(dim=-1) < 0.1,
     )
-    return lasted & settled
+    return reached_target & settled

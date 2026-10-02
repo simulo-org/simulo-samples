@@ -29,9 +29,9 @@ than an interface: there is no API here whose compatibility a semantic version c
   `simulo run ... --from <policy-id>:best` in place of `simulo models` and
   `--from <job-id>`. Each sample trains exactly what it trained before; the runtimes and
   results each README describes were recorded with an earlier client.
-- The structure check accepts `train.py` plus an optional `task.py`, requires each catalog
-  row to list exactly one job, and discovery compares that job with the one the client
-  packages from `train.py`.
+- The structure check accepts `train.py` plus optional `task.py`, `preview.py`, and `eval.py`,
+  requires each catalog row to list exactly one job, and discovery compares that job with the one
+  the client packages from `train.py`.
 - Every task now returns named end conditions as the dictionary half of `get_dones()`; tasks
   without an early end condition return `{}`.
 - Removed the declared Simulo client compatibility range. The samples are written for the

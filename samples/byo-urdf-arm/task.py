@@ -4,7 +4,7 @@ The robot this sample trains starts out as a plain ``.urdf`` file: mesh geometry
 link masses, inertia tensors, and joint limits, kept in ``assets/robot/byo-urdf-arm/``
 at the root of this repository. Publishing that directory with ``simulo asset publish``
 puts the arm in your own organization's catalog as ``robot/byo-urdf-arm:v1``, and the job
-below then consumes it exactly the way the other samples consume a Simulo catalog robot.
+in ``train.py`` then consumes it exactly the way the other samples consume a Simulo catalog robot.
 
 Publish the asset before you run this app. ``README.md`` next to this file has the
 command; without it the job fails when the scene asks for a robot the catalog does not
@@ -33,6 +33,8 @@ Run it
 Sign in with ``simulo login``, publish ``assets/robot/byo-urdf-arm/``, then::
 
     simulo run samples/byo-urdf-arm/train.py --num-envs 256 --max-iterations 150
+
+This file declares no job; submit ``train.py``.
 
 ``--num-envs`` and ``--max-iterations`` are ``train``'s own parameters. Use
 ``--num-envs 16 --max-iterations 2`` for a quick check that the job launches.
@@ -164,8 +166,3 @@ class ByoArmTask(simulo.Task):
         self.target[env_ids] = (
             torch.rand((n, 3), device=self.device) * 2.0 - 1.0
         ) * self.target_amplitude
-
-
-# retries=2 reruns the job after a failure. A training job saves its latest
-# checkpoint automatically every 50 iterations, and a rerun picks up from it
-# instead of starting over.

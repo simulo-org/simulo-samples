@@ -71,13 +71,13 @@ an absolute billing ceiling. Run `simulo cancel <job-id>` to stop a queued or ru
 
 ### Evaluate
 
-From this sample directory, use `simulo policy list` to find the policy id, then run:
+From the repository root, use `simulo policy list` to find the policy id, then run:
 
 ```bash
-simulo run eval.py --policy policy_<id>:best
+simulo run samples/franka-reach/eval.py --policy <policy-id>:best
 ```
 
-The rule checks that the hand is within 5 cm of the target when the episode ends.
+The rule checks that the hand is within 5 cm of the goal when the episode ends.
 
 <!-- REPORT EXCERPT: filled after the GPU run -->
 ```text

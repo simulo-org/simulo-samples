@@ -42,6 +42,7 @@ deferred alongside `torch`, and why a reward that calls into a CPU library canno
 - `train.py`: the one job you submit, `train`. It reads `DEMO_ZONE_CENTER_X`, trains the task,
   and is declared with `@app.job(type="train", ...)`, so it saves the policy's `best` and
   `latest` checkpoints automatically.
+- `eval.py`: the evaluation job and its target-zone success rule.
 - `.simuloignore`: files `simulo run` leaves out of the uploaded package.
 
 Simulo names it uses, beyond those in the `jetbot` sample:
@@ -78,13 +79,13 @@ an absolute billing ceiling. Run `simulo cancel <job-id>` to stop a queued or ru
 
 ### Evaluate
 
-From this sample directory, use `simulo policy list` to find the policy id, then run:
+From the repository root, use `simulo policy list` to find the policy id, then run:
 
 ```bash
-simulo run eval.py --policy policy_<id>:best
+simulo run samples/pip-install-shapely/eval.py --policy <policy-id>:best
 ```
 
-The rule checks that the policy completes the full 10-second episode.
+The rule checks that the robot finishes inside the 1 m target zone.
 
 <!-- REPORT EXCERPT: filled after the GPU run -->
 ```text

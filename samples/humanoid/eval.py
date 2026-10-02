@@ -22,12 +22,9 @@ def evaluate(
 @app.success
 def walked_forward(task):
     """Count an episode when the robot stays upright and moves forward."""
-    upright = task.check(
-        "stayed upright to the time limit",
-        task.survived() & ~task.ended_by("robot fell over"),
-    )
+    upright = task.check("stayed upright to the time limit", task.survived())
     forward = task.check(
-        "moved forward at least 0.1 m/s at the end",
-        task.robot.state.linear_velocity[:, 0] >= 0.1,
+        "covered at least 1 m forward over the episode",
+        task.robot.state.pose[:, 0] - task.env.scene.env_origins[:, 0] >= 1.0,
     )
     return upright & forward

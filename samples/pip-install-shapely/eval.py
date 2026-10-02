@@ -1,6 +1,8 @@
-"""Evaluate a Shapely target-zone policy through a complete episode."""
+"""Evaluate a Shapely target-zone policy by its final position."""
 
 from __future__ import annotations
+
+import os
 
 import simulo
 
@@ -14,12 +16,20 @@ def evaluate(
     num_envs: int = 100,
     actions: str = "best",
 ):
+    zone_center_x = float(os.environ.get("DEMO_ZONE_CENTER_X", "2.5"))
     return simulo.evaluate(
-        ShapelyZoneTask(), policy, episodes=episodes, num_envs=num_envs, actions=actions
+        ShapelyZoneTask(zone_center_x=zone_center_x),
+        policy,
+        episodes=episodes,
+        num_envs=num_envs,
+        actions=actions,
     )
 
 
 @app.success
-def completed_episode(task):
-    """Record whether the policy completed the full episode."""
-    return task.check("lasted to the 10 s time limit", task.survived())
+def reached_target_zone(task):
+    """Count an episode when the robot finishes inside the target zone."""
+    to_zone = task.get_observations()[:, 2:4]
+    return task.check(
+        "robot inside the 1 m target zone at the end", (to_zone.abs() <= 0.5).all(dim=-1)
+    )

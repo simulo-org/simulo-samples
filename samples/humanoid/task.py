@@ -36,6 +36,8 @@ Sign in once with ``simulo login``, then::
 
     simulo run samples/humanoid/train.py --num-envs 1024 --max-iterations 600
 
+This file declares no job; submit ``train.py``.
+
 Use ``--num-envs 64 --max-iterations 2`` for a quick check that the job launches.
 """
 
@@ -212,8 +214,8 @@ class HumanoidTask(simulo.Task):
         )
 
         # Fixed "walk forward" command: [vx, vy, heading_rate] = [1, 0, 0].
-        self._commands = torch.zeros((self.num_envs, 3), device=self.device)
-        self._commands[:, 0] = 1.0
+        self.commands = torch.zeros((self.num_envs, 3), device=self.device)
+        self.commands[:, 0] = 1.0
 
         # Per-env up / heading reference vectors (world frame), pre-broadcast to
         # (num_envs, 3) so ``_quat_rotate`` stays branch-free and JIT-friendly.
@@ -234,7 +236,7 @@ class HumanoidTask(simulo.Task):
                 state.linear_velocity_in_base_frame,
                 ang_vel_scaled,
                 projected_gravity,
-                self._commands,
+                self.commands,
                 joint_pos_rel,
                 joint_vel_scaled,
                 self._prev_actions,
@@ -276,8 +278,3 @@ class HumanoidTask(simulo.Task):
             return
         self.robot.reset(env_ids)
         self._prev_actions[env_ids] = 0.0
-
-
-# retries=2 reruns the job after a failure. A training job saves its latest
-# checkpoint automatically every 50 iterations, and a rerun picks up from it
-# instead of starting over.

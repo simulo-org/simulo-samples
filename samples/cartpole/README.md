@@ -35,6 +35,7 @@ still be imported on a laptop with no `torch` installed.
   declares no job.
 - `train.py`: the one job you submit, `train`. It imports `app` and `CartpoleTask` from
   `task.py`.
+- `eval.py`: the evaluation job and its pole-balancing success rule.
 - `preview.py`: a `preview` job that checks the robot inside `CartpoleTask` before you train.
   It makes no policy.
 - `.simuloignore`: files `simulo run` leaves out of the uploaded package.
@@ -87,10 +88,10 @@ simulo run samples/cartpole/preview.py
 
 ### Evaluate
 
-From this sample directory, use `simulo policy list` to find the policy id, then run:
+From the repository root, use `simulo policy list` to find the policy id, then run:
 
 ```bash
-simulo run eval.py --policy policy_<id>:best
+simulo run samples/cartpole/eval.py --policy <policy-id>:best
 ```
 
 The rule checks that the pole lasts to the time limit and finishes within 10 degrees of upright.

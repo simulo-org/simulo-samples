@@ -65,13 +65,13 @@ an absolute billing ceiling. Run `simulo cancel <job-id>` to stop a queued or ru
 
 ### Evaluate
 
-From this sample directory, use `simulo policy list` to find the policy id, then run:
+From the repository root, use `simulo policy list` to find the policy id, then run:
 
 ```bash
-simulo run eval.py --policy policy_<id>:best
+simulo run samples/jetbot/eval.py --policy <policy-id>:best
 ```
 
-The rule checks that the robot lasts to the time limit and is moving at least 0.1 m/s at the end.
+The rule checks that the robot moves at least 0.1 m/s in its commanded direction at the end.
 
 <!-- REPORT EXCERPT: filled after the GPU run -->
 ```text

@@ -22,12 +22,16 @@ def evaluate(
 @app.success
 def stayed_on_track(task):
     """Count an episode when the car stays on the track and keeps moving."""
-    on_track = task.check(
-        "stayed on the track for 5 s",
-        task.survived() & ~task.ended_by("car left the track"),
-    )
+    on_track = task.check("stayed on the track for 5 s", task.survived())
     moving = task.check(
         "moving at least 1 m/s at the end",
         task.robot.state.linear_velocity[:, :2].square().sum(dim=-1) >= 1.0,
     )
-    return on_track & moving
+    local_xy = task.robot.state.pose[:, :2] - task.env.scene.env_origins[:, :2]
+    counter_clockwise = task.check(
+        "moving counter-clockwise around the track",
+        local_xy[:, 0] * task.robot.state.linear_velocity[:, 1]
+        - local_xy[:, 1] * task.robot.state.linear_velocity[:, 0]
+        > 0,
+    )
+    return on_track & moving & counter_clockwise

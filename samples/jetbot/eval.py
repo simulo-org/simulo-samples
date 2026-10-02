@@ -1,4 +1,4 @@
-"""Evaluate a JetBot policy for sustained movement."""
+"""Evaluate a JetBot policy for movement in its commanded direction."""
 
 from __future__ import annotations
 
@@ -21,10 +21,9 @@ def evaluate(
 
 @app.success
 def kept_moving(task):
-    """Count an episode when the robot moves until the time limit."""
-    lasted = task.check("lasted to the time limit", task.survived())
-    moving = task.check(
-        "moved at least 0.1 m/s at the end",
-        task.robot.state.linear_velocity[:, :2].square().sum(dim=-1) >= 0.01,
+    """Count an episode when the robot moves in its commanded direction."""
+    moving_in_commanded_direction = task.check(
+        "moved at least 0.1 m/s in the commanded direction",
+        (task.robot.state.linear_velocity[:, :2] * task.commands[:, :2]).sum(dim=-1) >= 0.1,
     )
-    return lasted & moving
+    return moving_in_commanded_direction

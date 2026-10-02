@@ -9,6 +9,9 @@ import simulo
 from task import ByoArmTask, app
 
 
+# retries=2 reruns the job after a failure. A training job saves its latest
+# checkpoint automatically every 50 iterations, and a rerun picks up from it
+# instead of starting over.
 @app.job(
     type="train",
     # Tier 1: T4 GPU, 16 GB VRAM. Run `simulo systems` for the full four-tier catalog.
