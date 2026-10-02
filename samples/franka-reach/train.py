@@ -167,13 +167,13 @@ class FrankaReachTask(simulo.Task):
 
         # The controller is constructed against the ALREADY-BUILT robot, here
         # in on_start, because it reads the robot's joints and bodies, which do not
-        # exist during build(). `command_type="pose"` makes its command a
-        # 7-vector: the hand's target position in the base frame plus the
-        # w-first orientation quaternion held below.
+        # exist during build(). Its joint-name pattern resolves on first use.
+        # Each command supplies the hand position plus the same w-first
+        # orientation quaternion held for every environment below.
         self.ik = simulo.DifferentialIKController(
             robot=self.robot,
             end_effector=self.end_effector,
-            joints=self._arm_dof_idx,
+            joints=self.arm_joint_pattern,
             ik_method="dls",
             command_type="pose",
         )
@@ -183,9 +183,6 @@ class FrankaReachTask(simulo.Task):
         zeros = torch.zeros(self.num_envs, 3, device=self.device)
         self.goal_pos = zeros.clone()
         self._actions = torch.zeros(self.num_envs, self.action_dim, device=self.device)
-        self._orientation = torch.tensor(self.ee_orientation, device=self.device).repeat(
-            self.num_envs, 1
-        )
         self._initial_target = torch.tensor(self.initial_target, device=self.device).repeat(
             self.num_envs, 1
         )
@@ -264,10 +261,9 @@ class FrankaReachTask(simulo.Task):
         self._actions = actions
         self._target_pos = self._target_pos + self.action_scale * actions
         self._clamp_target()
-        # A (num_envs, 7) pose command: position + the fixed w-first
-        # orientation. The controller computes the joint targets and writes
-        # them to the robot itself.
-        self.ik.move_to(torch.cat((self._target_pos, self._orientation), dim=-1))
+        # Keep the hand's w-first orientation fixed while the task controls
+        # only its Cartesian target. The controller writes the joint targets.
+        self.ik.move_to(self._target_pos, orientation=self.ee_orientation)
 
     def reset_idx(self, env_ids: torch.Tensor) -> None:
         if len(env_ids) == 0:
@@ -287,7 +283,6 @@ class FrankaReachTask(simulo.Task):
         joint_vel = self.robot.default_joint_velocities[env_ids]
         self.robot.set_joint_state(joint_pos, velocities=joint_vel, env_ids=env_ids)
 
-        self.ik.reset()
         self._sample_goals(env_ids)
         self._target_pos[env_ids] = self._initial_target[env_ids]
 
