@@ -65,8 +65,10 @@ simulo run samples/humanoid/eval.py --policy <policy-id>:best
 ```
 
 The rule checks that the robot stays upright to the time limit and covers at least 1 m forward over
-the episode. The default run is expected to fail the forward check: its reward encourages heading,
-upright posture, and efficiency, but does not reward forward displacement.
+the episode. Expect the default run to fail both checks. Its reward encourages heading,
+upright posture, and efficiency, but does not reward forward displacement, and a policy this
+short learns to end each episode quickly rather than to balance: in the run below, every episode
+ended with the robot falling within half a second.
 
 The start of a real report, from evaluating a policy trained with this sample's default settings (1024 environments, 600 iterations):
 
