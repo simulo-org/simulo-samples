@@ -117,8 +117,8 @@ simulo run samples/byo-urdf-arm/eval.py --policy <policy-id>:best
 The rule checks that every joint is within 0.1 rad of its target and that the arm settles below
 0.1 rad/s.
 
-The default run is short, so expect its policy to miss the 0.1 rad bar on most or all episodes;
-train for more iterations to see the success rate rise. The start of a real report, from
+The default run is short, so expect its policy to miss the 0.1 rad bar on most or all
+episodes. The start of a real report, from
 evaluating a policy trained with this sample's default settings (256 environments, 150 iterations):
 
 ```text
