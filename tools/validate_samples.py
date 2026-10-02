@@ -53,10 +53,11 @@ DIFFICULTIES = ("introductory", "intermediate", "advanced")
 # Each sample submits exactly one job, from train.py. A sample may also keep its
 # application and task in task.py, which train.py imports; a task file declares no job.
 ENTRY_FILE = "train.py"
-# A sample may also keep one preview job, which checks the robot in its task before training.
+# A sample may also keep one preview or evaluation job beside its training job.
 PREVIEW_FILE = "preview.py"
+EVAL_FILE = "eval.py"
 SAMPLE_FILES = {ENTRY_FILE, "README.md", ".simuloignore"}
-OPTIONAL_SAMPLE_FILES = {"task.py", PREVIEW_FILE}
+OPTIONAL_SAMPLE_FILES = {"task.py", PREVIEW_FILE, EVAL_FILE}
 IGNORED_SAMPLE_ENTRIES = {"__pycache__", ".simulo"}
 SLUG_PATTERN = re.compile(r"[a-z0-9][a-z0-9-]*\Z")
 # The kinds `simulo asset publish --kind` accepts. A catalog reference is
@@ -455,6 +456,42 @@ def discover(entries: list[dict[str, Any]]) -> None:
                 print(f"Packaged {entry['slug']} job {job!r} of type {job_type!r}.")
             finally:
                 shutil.rmtree(package_dir, ignore_errors=True)
+
+            eval_path = entry_path.parent / EVAL_FILE
+            if eval_path.is_file():
+                try:
+                    checked += 1
+                    result = subprocess.run(
+                        [
+                            executable,
+                            "run",
+                            str(eval_path.relative_to(ROOT)),
+                            "--policy",
+                            "policy_brisk-heron-4f8k2m:best",
+                        ],
+                        cwd=ROOT,
+                        env=environment,
+                        text=True,
+                        capture_output=True,
+                        check=False,
+                    )
+                    # An offline client cannot resolve a checkpoint, so evaluation stops after
+                    # discovery and packaging. The manifest still proves the declared eval job.
+                    jobs = _packaged_jobs(package_dir)
+                    job_types = [
+                        job.get("type") if isinstance(job, dict) else None for job in jobs.values()
+                    ]
+                    if job_types != ["eval"]:
+                        fail(
+                            f"{entry['slug']}/{EVAL_FILE} must declare one eval job, "
+                            f"found {job_types}"
+                        )
+                    outcome = "completed" if result.returncode == 0 else "stopped after packaging"
+                    print(
+                        f"Packaged {entry['slug']} evaluation job {next(iter(jobs))!r}; {outcome}."
+                    )
+                finally:
+                    shutil.rmtree(package_dir, ignore_errors=True)
 
             preview_path = entry_path.parent / PREVIEW_FILE
             if not preview_path.is_file():
