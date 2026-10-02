@@ -126,13 +126,13 @@ class ByoArmTask(simulo.Task):
         elbow = self.robot.find_joints("elbow")
         self._joint_ids = pan + lift + elbow
 
-        self._target = torch.zeros((self.num_envs, 3), device=self.device)
+        self.target = torch.zeros((self.num_envs, 3), device=self.device)
         self._randomize_target(torch.arange(self.num_envs, device=self.device))
 
     def get_observations(self) -> torch.Tensor:
         joint_pos = self.robot.state.joint_positions[:, self._joint_ids]
         joint_vel = self.robot.state.joint_velocities[:, self._joint_ids]
-        return torch.cat([joint_pos, joint_vel, self._target], dim=-1)
+        return torch.cat([joint_pos, joint_vel, self.target], dim=-1)
 
     def get_rewards(self) -> torch.Tensor:
         return _compute_rewards(
@@ -140,7 +140,7 @@ class ByoArmTask(simulo.Task):
             self.rew_scale_velocity,
             self.robot.state.joint_positions[:, self._joint_ids],
             self.robot.state.joint_velocities[:, self._joint_ids],
-            self._target,
+            self.target,
         )
 
     def get_dones(self) -> tuple[dict[str, torch.Tensor], torch.Tensor]:
@@ -161,7 +161,7 @@ class ByoArmTask(simulo.Task):
     def _randomize_target(self, env_ids: torch.Tensor) -> None:
         """Sample a new target angle per joint, uniform in the amplitude band."""
         n = len(env_ids)
-        self._target[env_ids] = (
+        self.target[env_ids] = (
             torch.rand((n, 3), device=self.device) * 2.0 - 1.0
         ) * self.target_amplitude
 

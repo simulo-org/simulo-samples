@@ -150,13 +150,13 @@ class JetbotTask(simulo.Task):
         right = self.robot.find_joints("right_wheel_joint")
         self._wheel_joint_ids = left + right
 
-        self._commands = torch.zeros((self.num_envs, 3), device=self.device)
+        self.commands = torch.zeros((self.num_envs, 3), device=self.device)
         self._randomize_commands(torch.arange(self.num_envs, device=self.device))
 
     def get_observations(self) -> torch.Tensor:
         # pose is [x, y, z, qw, qx, qy, qz]; the quaternion is the last four columns.
         forward = _quat_to_forward(self.robot.state.pose[:, 3:7])
-        return torch.cat([forward, self._commands], dim=-1)
+        return torch.cat([forward, self.commands], dim=-1)
 
     def get_rewards(self) -> torch.Tensor:
         return _compute_rewards(
@@ -164,7 +164,7 @@ class JetbotTask(simulo.Task):
             self.rew_scale_velocity,
             self.robot.state.pose[:, 3:7],
             self.robot.state.linear_velocity,
-            self._commands,
+            self.commands,
         )
 
     def get_dones(self) -> tuple[dict[str, torch.Tensor], torch.Tensor]:
@@ -187,9 +187,9 @@ class JetbotTask(simulo.Task):
         """Generate new random XY-plane unit-vector direction commands."""
         n = len(env_ids)
         angles = torch.rand(n, device=self.device) * 2 * math.pi
-        self._commands[env_ids, 0] = torch.cos(angles)
-        self._commands[env_ids, 1] = torch.sin(angles)
-        self._commands[env_ids, 2] = 0.0
+        self.commands[env_ids, 0] = torch.cos(angles)
+        self.commands[env_ids, 1] = torch.sin(angles)
+        self.commands[env_ids, 2] = 0.0
 
 
 # retries=2 reruns the job after a failure. A training job saves its latest
