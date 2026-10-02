@@ -27,9 +27,10 @@ scale a policy's actions into effort targets; and why a fall (termination) and t
 
 ## Files and APIs
 
-- `train.py`: two quaternion helpers, the reward kernel, the task, and the `train_humanoid` job. It is the whole sample: the application, the task, and
-  the one job you submit. The job is declared with `@app.job(type="train", ...)`, so it
+- `task.py`: the application, quaternion helpers, reward kernel, and humanoid task.
+- `train.py`: the `train_humanoid` job, declared with `@app.job(type="train", ...)`, which
   saves the policy's `best` and `latest` checkpoints automatically.
+- `eval.py`: the evaluation job and its upright-forward success rule.
 - `.simuloignore`: files `simulo run` leaves out of the uploaded package.
 
 Simulo names it uses, beyond those in the `cartpole` sample:
@@ -54,6 +55,20 @@ to submit without waiting for the log.
 The job has one configured 8-hour execution budget shared by the initial attempt and its two
 retries. Dependency and asset preparation happens before that execution deadline, so this is not
 an absolute billing ceiling. Run `simulo cancel <job-id>` to stop a queued or running job.
+
+### Evaluate
+
+From this sample directory, use `simulo policy list` to find the policy id, then run:
+
+```bash
+simulo run eval.py --policy policy_<id>:best
+```
+
+The rule checks that the robot stays upright to the time limit and moves forward at least 0.1 m/s.
+
+<!-- REPORT EXCERPT: filled after the GPU run -->
+```text
+```
 
 ## What to expect
 

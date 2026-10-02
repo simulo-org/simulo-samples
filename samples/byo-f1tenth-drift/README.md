@@ -146,6 +146,20 @@ your terminal. Stop a queued or running job explicitly with its job id:
 simulo cancel <job-id>
 ```
 
+### Evaluate
+
+From this sample directory, use `simulo policy list` to find the policy id, then run:
+
+```bash
+simulo run eval.py --policy policy_<id>:best
+```
+
+The rule checks that the car stays on the track for 5 seconds and is moving at least 1 m/s.
+
+<!-- REPORT EXCERPT: filled after the GPU run -->
+```text
+```
+
 ## What to expect
 
 Publishing is a one-time step; every run after that resolves `robot/f1tenth:v1` from the

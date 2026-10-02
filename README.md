@@ -3,7 +3,8 @@
 This repository collects runnable Simulo robotics projects for engineers learning how to
 define cloud simulation and reinforcement learning jobs. Each sample is a small application
 that you submit with the Simulo client. A sample's `train.py` declares the one training job
-you submit, and a sample that keeps its task separate puts it in `task.py` next to it.
+you submit, and a sample that keeps its task separate puts it in `task.py` next to it. Every
+training sample also has an `eval.py` that measures a saved policy against that sample's rule.
 
 ## Prerequisites and compatibility
 
@@ -63,6 +64,9 @@ fleet, so a first run can sit `queued` for a while. A training job saves its pol
 `best` and `latest` checkpoints on its own. `simulo policy list` shows them, and
 `simulo run samples/cartpole/train.py --max-iterations 400 --from <policy-id>:best` continues
 training from one, with `--max-iterations` read as the new total.
+
+After training, change into a sample directory and evaluate its saved checkpoint with
+`simulo run eval.py --policy policy_<id>:best`; `simulo policy list` supplies the policy id.
 
 Each sample README explains its prerequisites, assets, expected results, and runtime.
 

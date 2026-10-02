@@ -76,6 +76,20 @@ The job has one configured 8-hour execution budget shared by the initial attempt
 retries. Dependency and asset preparation happens before that execution deadline, so this is not
 an absolute billing ceiling. Run `simulo cancel <job-id>` to stop a queued or running job.
 
+### Evaluate
+
+From this sample directory, use `simulo policy list` to find the policy id, then run:
+
+```bash
+simulo run eval.py --policy policy_<id>:best
+```
+
+The rule checks that the policy completes the full 10-second episode.
+
+<!-- REPORT EXCERPT: filled after the GPU run -->
+```text
+```
+
 ## What to expect
 
 Before training starts, Simulo prepares a runtime with `shapely` installed, which adds some time

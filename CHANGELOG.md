@@ -12,6 +12,8 @@ than an interface: there is no API here whose compatibility a semantic version c
 
 - `simulo install samples` as a documented way to get this repository, alongside
   `git clone`, with options to choose a destination and a Git branch, tag, or commit.
+- `eval.py` beside `train.py` in every sample, with a sample-specific success rule and a
+  documented command for evaluating a saved `best` checkpoint.
 
 ### Changed
 
@@ -30,6 +32,8 @@ than an interface: there is no API here whose compatibility a semantic version c
 - The structure check accepts `train.py` plus an optional `task.py`, requires each catalog
   row to list exactly one job, and discovery compares that job with the one the client
   packages from `train.py`.
+- Every task now returns named end conditions as the dictionary half of `get_dones()`; tasks
+  without an early end condition return `{}`.
 - Removed the declared Simulo client compatibility range. The samples are written for the
   latest client, installation upgrades to it, and a scheduled weekly check packages every
   declared job with the latest published client. The runtimes and results each sample
@@ -39,8 +43,8 @@ than an interface: there is no API here whose compatibility a semantic version c
 
 - Hello. Its job printed greetings and trained nothing, and the current client submits
   only training jobs, which must save a checkpoint.
-- Cartpole Eval. Its evaluation and playback jobs cannot be submitted with the current
-  client.
+- Cartpole Eval. Its old evaluation and playback jobs are removed; `eval.py` beside every
+  training sample now provides policy evaluation.
 - The `rollout` job of Bring your own F1TENTH-compatible car, and with it the recorded
   playback. Playing a policy back arrives in a later Simulo release.
 

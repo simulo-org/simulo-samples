@@ -28,9 +28,10 @@ a fresh goal for each.
 
 ## Files and APIs
 
-- `train.py`: the reward kernel, the task, and the `train_franka_reach` job. It is the whole sample: the application, the task, and
-  the one job you submit. The job is declared with `@app.job(type="train", ...)`, so it
-  saves the policy's `best` and `latest` checkpoints automatically.
+- `task.py`: the application, reward kernel, and Franka reach task.
+- `train.py`: the `train_franka_reach` job, declared with `@app.job(type="train", ...)`,
+  which saves the policy's `best` and `latest` checkpoints automatically.
+- `eval.py`: the evaluation job and its hand-to-target success rule.
 - `.simuloignore`: files `simulo run` leaves out of the uploaded package.
 
 Simulo names it uses, beyond those in the [Cartpole](../cartpole/) sample:
@@ -67,6 +68,20 @@ to submit without waiting for the log.
 The job has one configured 4-hour execution budget shared by the initial attempt and its two
 retries. Dependency and asset preparation happens before that execution deadline, so this is not
 an absolute billing ceiling. Run `simulo cancel <job-id>` to stop a queued or running job.
+
+### Evaluate
+
+From this sample directory, use `simulo policy list` to find the policy id, then run:
+
+```bash
+simulo run eval.py --policy policy_<id>:best
+```
+
+The rule checks that the hand is within 5 cm of the target when the episode ends.
+
+<!-- REPORT EXCERPT: filled after the GPU run -->
+```text
+```
 
 ## What to expect
 

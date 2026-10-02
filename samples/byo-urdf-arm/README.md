@@ -45,9 +45,10 @@ those names up, so a robot of your own with different joint names needs the name
 
 ## Files and APIs
 
-- `train.py`: the reward kernel, the task, and the one job you submit, `train`. The job is
-  declared with `@app.job(type="train", ...)`, so it saves the policy's `best` and `latest`
-  checkpoints automatically.
+- `task.py`: the application, reward kernel, and three-joint arm task.
+- `train.py`: the `train` job, declared with `@app.job(type="train", ...)`, which saves the
+  policy's `best` and `latest` checkpoints automatically.
+- `eval.py`: the evaluation job and its stable-completion success rule.
 - `.simuloignore`: files `simulo run` leaves out of the uploaded package.
 - `../../assets/robot/byo-urdf-arm/robot.urdf`: the robot description. Its
   `<mesh filename="meshes/...">` references resolve relative to the URDF.
@@ -104,6 +105,20 @@ without waiting for the log.
 
 The job stops itself after eight hours of execution and retries up to twice if it fails.
 Run `simulo cancel <job-id>` to stop a queued or running job.
+
+### Evaluate
+
+From this sample directory, use `simulo policy list` to find the policy id, then run:
+
+```bash
+simulo run eval.py --policy policy_<id>:best
+```
+
+The rule checks that the arm completes the 5-second episode and settles below 0.1 rad/s.
+
+<!-- REPORT EXCERPT: filled after the GPU run -->
+```text
+```
 
 ## What to expect
 

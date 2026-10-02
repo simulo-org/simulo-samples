@@ -30,9 +30,10 @@ may have a quiet period after it reports `running`.
 
 ## Files and APIs
 
-- `train.py`: a quaternion helper, the reward kernel, the task, and the `train_jetbot` job. It is the whole sample: the application, the task, and
-  the one job you submit. The job is declared with `@app.job(type="train", ...)`, so it
+- `task.py`: the application, quaternion helper, reward kernel, and JetBot task.
+- `train.py`: the `train_jetbot` job, declared with `@app.job(type="train", ...)`, which
   saves the policy's `best` and `latest` checkpoints automatically.
+- `eval.py`: the evaluation job and its sustained-movement success rule.
 - `.simuloignore`: files `simulo run` leaves out of the uploaded package.
 
 Simulo names it uses, beyond those in the `cartpole` sample:
@@ -61,6 +62,20 @@ other tiers; that figure comes from one workload and is not a platform-wide limi
 The job has one configured 8-hour execution budget shared by the initial attempt and its two
 retries. Dependency and asset preparation happens before that execution deadline, so this is not
 an absolute billing ceiling. Run `simulo cancel <job-id>` to stop a queued or running job.
+
+### Evaluate
+
+From this sample directory, use `simulo policy list` to find the policy id, then run:
+
+```bash
+simulo run eval.py --policy policy_<id>:best
+```
+
+The rule checks that the robot lasts to the time limit and is moving at least 0.1 m/s at the end.
+
+<!-- REPORT EXCERPT: filled after the GPU run -->
+```text
+```
 
 ## What to expect
 

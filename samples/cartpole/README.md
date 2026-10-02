@@ -85,6 +85,20 @@ with a recording. It makes no policy:
 simulo run samples/cartpole/preview.py
 ```
 
+### Evaluate
+
+From this sample directory, use `simulo policy list` to find the policy id, then run:
+
+```bash
+simulo run eval.py --policy policy_<id>:best
+```
+
+The rule checks that the pole lasts to the time limit and finishes within 10 degrees of upright.
+
+<!-- REPORT EXCERPT: filled after the GPU run -->
+```text
+```
+
 ## What to expect
 
 `simulo run` uploads the application, creates a job, and follows its log. After the simulation
