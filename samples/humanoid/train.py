@@ -41,7 +41,7 @@ Use ``--num-envs 64 --max-iterations 2`` for a quick check that the job launches
 
 from __future__ import annotations
 
-from typing import Any, List, Tuple
+from typing import Any, List
 
 import simulo
 
@@ -268,9 +268,9 @@ class HumanoidTask(simulo.Task):
             self.reset_terminated,
         )
 
-    def get_dones(self) -> Tuple[torch.Tensor, torch.Tensor]:
+    def get_dones(self) -> tuple[dict[str, torch.Tensor], torch.Tensor]:
         # robot.state.pose is [x, y, z, qw, qx, qy, qz]; z (height) is column 2.
-        terminated = self.robot.state.pose[:, 2] < self.termination_height
+        terminated = {"robot fell over": self.robot.state.pose[:, 2] < self.termination_height}
         truncated = self.episode_length_buf >= self.max_episode_length - 1
         return terminated, truncated
 

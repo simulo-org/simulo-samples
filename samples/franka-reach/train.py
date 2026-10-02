@@ -40,7 +40,7 @@ Use ``--num-envs 64 --max-iterations 2`` for a quick check that the job launches
 
 from __future__ import annotations
 
-from typing import Any, Tuple
+from typing import Any
 
 import simulo
 
@@ -184,7 +184,7 @@ class FrankaReachTask(simulo.Task):
         self._default_joint_pos = self.robot.internals.default_joint_pos.clone()
 
         zeros = torch.zeros(self.num_envs, 3, device=self.device)
-        self._goal_pos = zeros.clone()
+        self.goal_pos = zeros.clone()
         self._ee_pos = zeros.clone()
         self._actions = torch.zeros(self.num_envs, self.action_dim, device=self.device)
         self._orientation = torch.tensor(self.ee_orientation, device=self.device).repeat(
@@ -205,7 +205,7 @@ class FrankaReachTask(simulo.Task):
         for axis, (low, high) in enumerate(
             (self.goal_x_range, self.goal_y_range, self.goal_z_range)
         ):
-            self._goal_pos[env_ids, axis] = torch.empty(count, device=self.device).uniform_(
+            self.goal_pos[env_ids, axis] = torch.empty(count, device=self.device).uniform_(
                 low, high
             )
 
@@ -239,8 +239,8 @@ class FrankaReachTask(simulo.Task):
                 joint_pos_rel,
                 joint_vel,
                 self._ee_pos,
-                self._goal_pos,
-                self._goal_pos - self._ee_pos,
+                self.goal_pos,
+                self.goal_pos - self._ee_pos,
             ),
             dim=-1,
         )
@@ -253,16 +253,16 @@ class FrankaReachTask(simulo.Task):
             self.distance_std,
             self.fine_std,
             self._ee_pos,
-            self._goal_pos,
+            self.goal_pos,
             self._actions,
         )
 
-    def get_dones(self) -> Tuple[torch.Tensor, torch.Tensor]:
+    def get_dones(self) -> tuple[dict[str, torch.Tensor], torch.Tensor]:
         # Refresh the hand readback once per step, here, before the reward and
         # the next observation both read it.
         self._ee_pos = self._read_ee_position()
         truncated = self.episode_length_buf >= self.max_episode_length - 1
-        terminated = torch.zeros_like(truncated)
+        terminated = {}
         return terminated, truncated
 
     def apply_actions(self, actions: torch.Tensor) -> None:

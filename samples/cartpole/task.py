@@ -42,7 +42,6 @@ This file declares no job, so ``simulo run`` refuses it. Submit ``train.py`` ins
 from __future__ import annotations
 
 import math
-from typing import Tuple
 
 import simulo
 
@@ -171,7 +170,7 @@ class CartpoleTask(simulo.Task):
             self.reset_terminated,
         )
 
-    def get_dones(self) -> Tuple[torch.Tensor, torch.Tensor]:
+    def get_dones(self) -> tuple[dict[str, torch.Tensor], torch.Tensor]:
         self._joint_pos = self.robot.state.joint_positions
         self._joint_vel = self.robot.state.joint_velocities
         pole_idx = self._pole_dof_idx[0]
@@ -179,7 +178,7 @@ class CartpoleTask(simulo.Task):
         truncated = self.episode_length_buf >= self.max_episode_length - 1
         cart_out = torch.abs(self._joint_pos[:, cart_idx]) > self.max_cart_pos
         pole_fallen = torch.abs(self._joint_pos[:, pole_idx]) > math.pi / 2
-        terminated = cart_out | pole_fallen
+        terminated = {"cart left the track": cart_out, "pole fell": pole_fallen}
         return terminated, truncated
 
     def apply_actions(self, actions: torch.Tensor) -> None:

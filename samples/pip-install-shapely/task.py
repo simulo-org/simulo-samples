@@ -61,8 +61,6 @@ declares no job, so ``simulo run`` refuses it. Submit ``train.py`` instead.
 
 from __future__ import annotations
 
-from typing import Tuple
-
 import simulo
 
 # The JetBot robot: the same version-pinned catalog asset the ``jetbot`` sample trains.
@@ -245,9 +243,9 @@ class ShapelyZoneTask(simulo.Task):
             self._local_xy(), self._target_zone, self.reach_bonus, self.device
         )
 
-    def get_dones(self) -> Tuple[torch.Tensor, torch.Tensor]:
+    def get_dones(self) -> tuple[dict[str, torch.Tensor], torch.Tensor]:
         truncated = self.episode_length_buf >= self.max_episode_length - 1
-        terminated = torch.zeros_like(truncated)
+        terminated = {}
         return terminated, truncated
 
     def apply_actions(self, actions: torch.Tensor) -> None:

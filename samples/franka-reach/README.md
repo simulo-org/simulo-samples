@@ -110,8 +110,10 @@ log-follow session only detaches from the stream; it does not cancel the job.
   controller applies the joint commands itself, and a `set_joint_position_target` call alongside
   it fights over the same joints.
 - The first observation looks wrong after you edit `reset_idx`: the hand position is refreshed
-  both in `get_dones` and at the end of `reset_idx`, because a reset is followed by an observation
-  and not by a done check. Keep both refreshes.
+  both in `get_dones`, which returns `({}, truncated)` for this task: `{}` is the empty
+  early-end-condition dictionary and `truncated` is one boolean tensor. It is also refreshed at
+  the end of `reset_idx`, because a reset is followed by an observation and not by a done check.
+  Keep both refreshes.
 
 ## Extending it
 

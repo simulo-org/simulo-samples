@@ -521,11 +521,14 @@ class F1TenthDriftTask(simulo.Task):
             self.reset_terminated,
         )
 
-    def get_dones(self) -> Tuple[torch.Tensor, torch.Tensor]:
+    def get_dones(self) -> tuple[dict[str, torch.Tensor], torch.Tensor]:
         pose = self.robot.state.pose
         local_xy = self._local_xy(pose)
         measure = _track_measure(local_xy[:, 0], local_xy[:, 1], self.straight)
-        terminated = (measure < self.corner_in_radius) | (measure > self.corner_out_radius)
+        terminated = {
+            "car left the track": (measure < self.corner_in_radius)
+            | (measure > self.corner_out_radius)
+        }
         truncated = self.episode_length_buf >= self.max_episode_length - 1
         return terminated, truncated
 

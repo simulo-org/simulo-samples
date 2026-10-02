@@ -43,7 +43,9 @@ Simulo names it uses:
 
 - `simulo.Asset.from_registry(...)`: the catalog robot handle.
 - `simulo.Task` with `build`, `on_start`, `get_observations`, `get_rewards`, `get_dones`,
-  `apply_actions`, and `reset_idx`.
+  `apply_actions`, and `reset_idx`. `get_dones` returns `(terminated, truncated)`: `terminated`
+  is a dictionary mapping each early-end condition name to a boolean tensor, and `truncated` is
+  one boolean tensor.
 - `simulo.Scene`, `simulo.Terrain.plane`, `simulo.Light.dome`, `simulo.Robot`, `simulo.Pose`.
 - `robot.state` for live joint positions and velocities; `robot.find_joints`,
   `robot.set_joint_effort_target`, `robot.set_joint_state`, `robot.reset`.
