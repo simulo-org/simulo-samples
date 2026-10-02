@@ -476,9 +476,6 @@ class F1TenthDriftTask(simulo.Task):
         return pose[:, 0:2] - self._env_origin_xy
 
     def get_observations(self) -> torch.Tensor:
-        # robot.state is the supported, typed way to read live state. robot.internals
-        # is the raw escape hatch; see
-        # https://docs.simulo.ai/concepts/scene-robot-world/.
         pose = self.robot.state.pose  # (N, 7): [x, y, z, qw, qx, qy, qz]
         local_xy = self._local_xy(pose)
         euler = _quat_to_euler_xyz(pose[:, 3:7])

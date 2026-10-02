@@ -141,43 +141,41 @@ class CartpoleTask(simulo.Task):
     def on_start(self, env: simulo.LearningEnv) -> None:
         self._cart_dof_idx = self.robot.find_joints("slider_to_cart")
         self._pole_dof_idx = self.robot.find_joints("cart_to_pole")
-        # robot.state is the supported, typed way to read live state. robot.internals
-        # is the raw escape hatch; see
-        # https://docs.simulo.ai/concepts/scene-robot-world/.
-        self._joint_pos = self.robot.state.joint_positions
-        self._joint_vel = self.robot.state.joint_velocities
 
     def get_observations(self) -> torch.Tensor:
         pole_idx = self._pole_dof_idx[0]
         cart_idx = self._cart_dof_idx[0]
-        pole_pos = self._joint_pos[:, pole_idx].view(-1, 1)
-        pole_vel = self._joint_vel[:, pole_idx].view(-1, 1)
-        cart_pos = self._joint_pos[:, cart_idx].view(-1, 1)
-        cart_vel = self._joint_vel[:, cart_idx].view(-1, 1)
+        joint_pos = self.robot.state.joint_positions
+        joint_vel = self.robot.state.joint_velocities
+        pole_pos = joint_pos[:, pole_idx].view(-1, 1)
+        pole_vel = joint_vel[:, pole_idx].view(-1, 1)
+        cart_pos = joint_pos[:, cart_idx].view(-1, 1)
+        cart_vel = joint_vel[:, cart_idx].view(-1, 1)
         return torch.cat((pole_pos, pole_vel, cart_pos, cart_vel), dim=-1)
 
     def get_rewards(self) -> torch.Tensor:
+        joint_pos = self.robot.state.joint_positions
+        joint_vel = self.robot.state.joint_velocities
         return _compute_rewards(
             self.rew_scale_alive,
             self.rew_scale_terminated,
             self.rew_scale_pole_pos,
             self.rew_scale_cart_vel,
             self.rew_scale_pole_vel,
-            self._joint_pos[:, self._pole_dof_idx[0]],
-            self._joint_vel[:, self._pole_dof_idx[0]],
-            self._joint_pos[:, self._cart_dof_idx[0]],
-            self._joint_vel[:, self._cart_dof_idx[0]],
+            joint_pos[:, self._pole_dof_idx[0]],
+            joint_vel[:, self._pole_dof_idx[0]],
+            joint_pos[:, self._cart_dof_idx[0]],
+            joint_vel[:, self._cart_dof_idx[0]],
             self.reset_terminated,
         )
 
     def get_dones(self) -> tuple[dict[str, torch.Tensor], torch.Tensor]:
-        self._joint_pos = self.robot.state.joint_positions
-        self._joint_vel = self.robot.state.joint_velocities
         pole_idx = self._pole_dof_idx[0]
         cart_idx = self._cart_dof_idx[0]
+        joint_pos = self.robot.state.joint_positions
         truncated = self.episode_length_buf >= self.max_episode_length - 1
-        cart_out = torch.abs(self._joint_pos[:, cart_idx]) > self.max_cart_pos
-        pole_fallen = torch.abs(self._joint_pos[:, pole_idx]) > math.pi / 2
+        cart_out = torch.abs(joint_pos[:, cart_idx]) > self.max_cart_pos
+        pole_fallen = torch.abs(joint_pos[:, pole_idx]) > math.pi / 2
         terminated = {"cart left the track": cart_out, "pole fell": pole_fallen}
         return terminated, truncated
 
@@ -192,18 +190,13 @@ class CartpoleTask(simulo.Task):
             return
         self.robot.reset(env_ids)
         pole_idx = self._pole_dof_idx[0]
-        # robot.state has no default-joint-value equivalent, so this stays on the
-        # internals escape hatch (there is nothing unstable about reading it here,
-        # just no supported, typed name for it yet).
-        joint_pos = self.robot.internals.default_joint_pos[env_ids].clone()
+        # Start from the default joint positions for the selected environments.
+        joint_pos = self.robot.default_joint_positions[env_ids]
         random_angles = torch.empty(num_resets, device=self.device).uniform_(
             self.initial_pole_angle_range[0] * math.pi,
             self.initial_pole_angle_range[1] * math.pi,
         )
         joint_pos[:, pole_idx] += random_angles
-        # set_joint_state writes positions and velocities in one call and refreshes
-        # the buffers behind robot.state in place. self._joint_pos and
-        # self._joint_vel are those same buffers, so they are already current after
-        # this call and nothing needs to be written into them directly.
-        joint_vel = self.robot.internals.default_joint_vel[env_ids]
+        # Apply the randomized starting positions and default velocities together.
+        joint_vel = self.robot.default_joint_velocities[env_ids]
         self.robot.set_joint_state(joint_pos, velocities=joint_vel, env_ids=env_ids)

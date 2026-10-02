@@ -60,7 +60,7 @@ Simulo names it uses, beyond those in the `jetbot` sample:
   `from shapely.geometry import Point, Polygon`.
 - `env.scene.env_origins` in `on_start`, to express positions relative to each environment's own
   spawn point.
-- `robot.set_root_pose(...)` and `robot.internals.default_root_state` in the spawn-jitter reset.
+- `robot.set_root_pose(...)` and `robot.default_pose` in the spawn-jitter reset.
 
 ## Run it
 

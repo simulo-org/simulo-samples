@@ -132,9 +132,6 @@ class ByoArmTask(simulo.Task):
         self._randomize_target(torch.arange(self.num_envs, device=self.device))
 
     def get_observations(self) -> torch.Tensor:
-        # robot.state is the supported, typed way to read live state. robot.internals
-        # is the raw escape hatch; see
-        # https://docs.simulo.ai/concepts/scene-robot-world/.
         joint_pos = self.robot.state.joint_positions[:, self._joint_ids]
         joint_vel = self.robot.state.joint_velocities[:, self._joint_ids]
         return torch.cat([joint_pos, joint_vel, self._target], dim=-1)

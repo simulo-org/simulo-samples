@@ -223,21 +223,15 @@ class HumanoidTask(simulo.Task):
         self._heading_vec[:, 0] = 1.0
 
     def get_observations(self) -> torch.Tensor:
-        # Stays on the internals escape hatch: this reads `default_joint_pos`
-        # (robot.state has no default-joint-value equivalent) AND the BODY-FRAME
-        # root velocities `root_ang_vel_b` / `root_lin_vel_b`. robot.state's
-        # `angular_velocity` / `linear_velocity` are the WORLD-frame members, so
-        # substituting them would silently change the observation's frame, not
-        # just its spelling.
-        data = self.robot.internals
-        projected_gravity = _quat_rotate_inverse(data.root_quat_w, self._up_vec)
-        joint_pos_rel = data.joint_pos - data.default_joint_pos
-        joint_vel_scaled = data.joint_vel * self.dof_vel_scale
-        ang_vel_scaled = data.root_ang_vel_b * self.angular_velocity_scale
+        state = self.robot.state
+        projected_gravity = _quat_rotate_inverse(state.pose[:, 3:7], self._up_vec)
+        joint_pos_rel = state.joint_positions - self.robot.default_joint_positions
+        joint_vel_scaled = state.joint_velocities * self.dof_vel_scale
+        ang_vel_scaled = state.angular_velocity_in_base_frame * self.angular_velocity_scale
 
         return torch.cat(
             [
-                data.root_lin_vel_b,
+                state.linear_velocity_in_base_frame,
                 ang_vel_scaled,
                 projected_gravity,
                 self._commands,
@@ -249,9 +243,6 @@ class HumanoidTask(simulo.Task):
         )
 
     def get_rewards(self) -> torch.Tensor:
-        # Unlike get_observations above, this reads only the root quaternion and
-        # the joint velocities, both covered by robot.state (robot.state.pose is
-        # [x, y, z, qw, qx, qy, qz]; [:, 3:7] is the w-first root quaternion).
         return _compute_rewards(
             self.heading_weight,
             self.up_weight,

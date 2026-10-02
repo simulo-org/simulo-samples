@@ -155,9 +155,6 @@ class JetbotTask(simulo.Task):
         self._randomize_commands(torch.arange(self.num_envs, device=self.device))
 
     def get_observations(self) -> torch.Tensor:
-        # robot.state is the supported, typed way to read live state. robot.internals
-        # is the raw escape hatch; see
-        # https://docs.simulo.ai/concepts/scene-robot-world/.
         # pose is [x, y, z, qw, qx, qy, qz]; the quaternion is the last four columns.
         forward = _quat_to_forward(self.robot.state.pose[:, 3:7])
         return torch.cat([forward, self._commands], dim=-1)

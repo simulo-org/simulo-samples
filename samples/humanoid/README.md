@@ -36,9 +36,9 @@ Simulo names it uses, beyond those in the `cartpole` sample:
 
 - `robot.state.pose` (position and w-first quaternion per environment) and
   `robot.state.joint_velocities` for the reward and the fall check.
-- `robot.internals` for the two reads `robot.state` does not offer: the default joint positions
-  and the body-frame root velocities. The comment in `get_observations` says why those two frames
-  matter.
+- `robot.default_joint_positions`, plus `robot.state.linear_velocity_in_base_frame` and
+  `robot.state.angular_velocity_in_base_frame`, for the rest-relative and body-frame terms in
+  the observation.
 - `robot.set_joint_effort_target(...)` on all 21 joints at once.
 
 ## Run it

@@ -178,14 +178,10 @@ class FrankaReachTask(simulo.Task):
             command_type="pose",
         )
 
-        # robot.state has no default-joint-value equivalent, so this stays on
-        # the internals escape hatch (there is nothing unstable about reading
-        # it here, just no supported, typed name for it yet).
-        self._default_joint_pos = self.robot.internals.default_joint_pos.clone()
+        self._default_joint_pos = self.robot.default_joint_positions
 
         zeros = torch.zeros(self.num_envs, 3, device=self.device)
         self.goal_pos = zeros.clone()
-        self._ee_pos = zeros.clone()
         self._actions = torch.zeros(self.num_envs, self.action_dim, device=self.device)
         self._orientation = torch.tensor(self.ee_orientation, device=self.device).repeat(
             self.num_envs, 1
@@ -209,7 +205,7 @@ class FrankaReachTask(simulo.Task):
                 low, high
             )
 
-    def _read_ee_position(self) -> torch.Tensor:
+    def hand_position(self) -> torch.Tensor:
         """Hand position in the arm's base frame, shape ``(num_envs, 3)``.
 
         ``get_body_pose_in_base_frame`` is the supported, typed readback; it
@@ -234,44 +230,37 @@ class FrankaReachTask(simulo.Task):
         joint_pos = self.robot.state.joint_positions[:, self._arm_dof_idx]
         joint_vel = self.robot.state.joint_velocities[:, self._arm_dof_idx]
         joint_pos_rel = joint_pos - self._default_joint_pos[:, self._arm_dof_idx]
+        ee_pos = self.hand_position()
         return torch.cat(
             (
                 joint_pos_rel,
                 joint_vel,
-                self._ee_pos,
+                ee_pos,
                 self.goal_pos,
-                self.goal_pos - self._ee_pos,
+                self.goal_pos - ee_pos,
             ),
             dim=-1,
         )
 
     def get_rewards(self) -> torch.Tensor:
+        ee_pos = self.hand_position()
         return _compute_rewards(
             self.rew_scale_distance,
             self.rew_scale_fine,
             self.rew_scale_action,
             self.distance_std,
             self.fine_std,
-            self._ee_pos,
+            ee_pos,
             self.goal_pos,
             self._actions,
         )
 
     def get_dones(self) -> tuple[dict[str, torch.Tensor], torch.Tensor]:
-        # Refresh the hand readback once per step, here, before the reward and
-        # the next observation both read it.
-        self._ee_pos = self._read_ee_position()
         truncated = self.episode_length_buf >= self.max_episode_length - 1
         terminated = {}
         return terminated, truncated
 
     def apply_actions(self, actions: torch.Tensor) -> None:
-        # This ALIASES the trainer's own action tensor: nothing between the
-        # trainer and this method copies it defensively, and the trainer stores
-        # that same tensor as the transition's action after the step returns.
-        # So: read `self._actions`, never write into it. An in-place write here
-        # (or anywhere downstream) lands in a transition PPO is about to record
-        # against a real reward.
         self._actions = actions
         self._target_pos = self._target_pos + self.action_scale * actions
         self._clamp_target()
@@ -292,27 +281,15 @@ class FrankaReachTask(simulo.Task):
         # them outside their own limits at the start of an episode. They are
         # not part of this task either -- its action is a 3-dim Cartesian
         # nudge, and it declares no gripper.
-        joint_pos = self.robot.internals.default_joint_pos[env_ids].clone()
+        joint_pos = self.robot.default_joint_positions[env_ids]
         arm = self._arm_dof_idx
         joint_pos[:, arm] += torch.empty_like(joint_pos[:, arm]).uniform_(-0.05, 0.05)
-        joint_vel = self.robot.internals.default_joint_vel[env_ids]
+        joint_vel = self.robot.default_joint_velocities[env_ids]
         self.robot.set_joint_state(joint_pos, velocities=joint_vel, env_ids=env_ids)
 
         self.ik.reset()
         self._sample_goals(env_ids)
         self._target_pos[env_ids] = self._initial_target[env_ids]
-
-        # Refresh the hand readback here as well as in `get_dones`. `env.reset()`
-        # runs `reset_idx` and then `get_observations` -- it never calls
-        # `get_dones` -- so without this the FIRST observation of a run reports
-        # the hand at the origin and a goal-relative vector measured from it.
-        self._ee_pos = self._read_ee_position()
-
-        # `self._actions[env_ids] = 0.0` used to live here. It was dead for
-        # this task's arithmetic (`_actions` is read only by `get_rewards`,
-        # which runs earlier in the same `env.step`, and `apply_actions`
-        # rebinds it before the next read) and actively harmful otherwise: it
-        # wrote zeros into the trainer's own tensor. See `apply_actions`.
 
 
 @app.job(

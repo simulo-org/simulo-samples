@@ -231,9 +231,6 @@ class ShapelyZoneTask(simulo.Task):
         return self.robot.state.pose[:, :2] - self._env_origin_xy
 
     def get_observations(self) -> torch.Tensor:
-        # robot.state is the supported, typed way to read live state. robot.internals
-        # is the raw escape hatch; see
-        # https://docs.simulo.ai/concepts/scene-robot-world/.
         forward_xy = _quat_to_forward(self.robot.state.pose[:, 3:7])[:, :2]
         target_xy = self._target_centroid_xy.unsqueeze(0) - self._local_xy()
         return torch.cat([forward_xy, target_xy], dim=-1)
@@ -267,11 +264,10 @@ class ShapelyZoneTask(simulo.Task):
         per-env diversity for free from its randomised commanded direction. Built from
         two sources that never depend on reading back a value written moments ago:
         ``self._env_origin_xy`` (captured once in ``on_start``, the stable per-env grid
-        offset) for XY, and the asset's own ``default_root_state`` (a static
-        configuration tensor, the same one ``robot.reset()`` reads) for the authored
-        rest height. Environment grids only offset X and Y, never Z, so the local
-        default Z is already the world Z. Applied with ``set_root_pose`` (world frame,
-        a teleport rather than a control input).
+        offset) for XY, and ``robot.default_pose`` for the authored rest height.
+        The standard environment grid offsets only X and Y, so its world-frame Z is
+        the authored rest height. Applied with ``set_root_pose`` (world frame, a
+        teleport rather than a control input).
         """
         n = len(env_ids)
         jitter_xy = (torch.rand((n, 2), device=self.device) * 2.0 - 1.0) * self.spawn_jitter_xy
@@ -279,9 +275,7 @@ class ShapelyZoneTask(simulo.Task):
 
         pose = torch.zeros((n, 7), device=self.device)
         pose[:, :2] = self._env_origin_xy[env_ids] + jitter_xy
-        pose[:, 2] = self.robot.internals.default_root_state[
-            env_ids, 2
-        ]  # the asset's authored rest height
+        pose[:, 2] = self.robot.default_pose[env_ids, 2]
         half_yaw = jitter_yaw * 0.5
         pose[:, 3] = torch.cos(half_yaw)  # qw
         pose[:, 6] = torch.sin(half_yaw)  # qz: pure yaw rotation about world Z
