@@ -96,8 +96,19 @@ simulo run samples/cartpole/eval.py --policy <policy-id>:best
 
 The rule checks that the pole lasts to the time limit and finishes within 10 degrees of upright.
 
-<!-- REPORT EXCERPT: filled after the GPU run -->
+The start of a real report, from evaluating a policy trained with this sample's default settings (4096 environments, 200 iterations):
+
 ```text
+RESULT
+  100 of 100 episodes succeeded. Likely range: 96% to 100%.
+  Each check:  lasted to the time limit 100 of 100 · pole within 10 degrees of upright 100 of 100
+
+WHAT WAS TESTED
+  Policy     policy_lemon-bamboo-4v4t47:best, saved at iteration 200 (training reward 292.8)
+  Task       CartpoleTask in task.py, unchanged since the policy was trained
+  Episodes   0 to 99, the same starting positions every time
+  Actions    the policy's best-guess action, without training's random variation
+  Success    balanced() in eval.py, with checks: lasted to the time limit, pole within 10 degrees of upright
 ```
 
 ## What to expect

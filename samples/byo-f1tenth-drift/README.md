@@ -158,8 +158,20 @@ simulo run samples/byo-f1tenth-drift/eval.py --policy <policy-id>:best
 The rule checks that the car stays on the track for 5 seconds, moves at least 1 m/s, and travels
 counter-clockwise.
 
-<!-- REPORT EXCERPT: filled after the GPU run -->
+The start of a real report, from evaluating a policy trained with this sample's default settings (256 environments, 500 iterations):
+
 ```text
+RESULT
+  84 of 100 episodes succeeded. Likely range: 75% to 90%.
+  Each check:  stayed on the track for 5 s 84 of 100 · moving at least 1 m/s at the end 97 of 100 · moving counter-clockwise around the track 99 of 100
+  Among 16 failures: 12 missed only "stayed on the track for 5 s", 3 missed "stayed on the track for 5 s" and "moving at least 1 m/s at the end", 1 missed "stayed on the track for 5 s" and "moving counter-clockwise around the track".
+
+WHAT WAS TESTED
+  Policy     policy_elegant-kern-8wsjs2:best, saved at iteration 300 (training reward 91386.9)
+  Task       F1TenthDriftTask in task.py, unchanged since the policy was trained
+  Episodes   0 to 99, the same starting positions every time
+  Actions    the policy's best-guess action, without training's random variation
+  Success    stayed_on_track() in eval.py, with checks: stayed on the track for 5 s, moving at least 1 m/s at the end, moving counter-clockwise around the track
 ```
 
 ## What to expect

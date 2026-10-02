@@ -79,8 +79,20 @@ simulo run samples/franka-reach/eval.py --policy <policy-id>:best
 
 The rule checks that the hand is within 5 cm of the goal when the episode ends.
 
-<!-- REPORT EXCERPT: filled after the GPU run -->
+The start of a real report, from evaluating a policy trained with this sample's default settings (2048 environments, 300 iterations):
+
 ```text
+RESULT
+  7 of 100 episodes succeeded. Likely range: 3% to 14%.
+  Each check:  hand within 5 cm of the goal 7 of 100
+  Among 93 failures: 93 missed "hand within 5 cm of the goal".
+
+WHAT WAS TESTED
+  Policy     policy_humorous-swift-3xaf5v:best, saved at iteration 150 (training reward 168.1)
+  Task       FrankaReachTask in task.py, unchanged since the policy was trained
+  Episodes   0 to 99, the same starting positions every time
+  Actions    the policy's best-guess action, without training's random variation
+  Success    reached() in eval.py, with checks: hand within 5 cm of the goal
 ```
 
 ## What to expect

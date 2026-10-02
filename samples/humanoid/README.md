@@ -68,8 +68,20 @@ The rule checks that the robot stays upright to the time limit and covers at lea
 the episode. The default run is expected to fail the forward check: its reward encourages heading,
 upright posture, and efficiency, but does not reward forward displacement.
 
-<!-- REPORT EXCERPT: filled after the GPU run -->
+The start of a real report, from evaluating a policy trained with this sample's default settings (1024 environments, 600 iterations):
+
 ```text
+RESULT
+  0 of 100 episodes succeeded. Likely range: 0% to 4%.
+  Each check:  stayed upright to the time limit 0 of 100 · covered at least 1 m forward over the episode 0 of 100
+  Among 100 failures: 100 missed both checks.
+
+WHAT WAS TESTED
+  Policy     policy_swift-taping-epas8p:best, saved at iteration 600 (training reward -639)
+  Task       HumanoidTask in task.py, unchanged since the policy was trained
+  Episodes   0 to 99, the same starting positions every time
+  Actions    the policy's best-guess action, without training's random variation
+  Success    walked_forward() in eval.py, with checks: stayed upright to the time limit, covered at least 1 m forward over the episode
 ```
 
 ## What to expect

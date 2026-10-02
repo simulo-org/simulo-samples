@@ -87,8 +87,20 @@ simulo run samples/pip-install-shapely/eval.py --policy <policy-id>:best
 
 The rule checks that the robot finishes inside the 1 m target zone.
 
-<!-- REPORT EXCERPT: filled after the GPU run -->
+The start of a real report, from evaluating a policy trained with this sample's default settings (64 environments, 300 iterations):
+
 ```text
+RESULT
+  10 of 100 episodes succeeded. Likely range: 5% to 18%.
+  Each check:  robot inside the 1 m target zone at the end 10 of 100
+  Among 90 failures: 90 missed "robot inside the 1 m target zone at the end".
+
+WHAT WAS TESTED
+  Policy     policy_alchemical-mansion-atxxm0:best, saved at iteration 300 (training reward 173.3)
+  Task       ShapelyZoneTask in task.py, unchanged since the policy was trained
+  Episodes   0 to 99, the same starting positions every time
+  Actions    the policy's best-guess action, without training's random variation
+  Success    reached_target_zone() in eval.py, with checks: robot inside the 1 m target zone at the end
 ```
 
 ## What to expect

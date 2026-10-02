@@ -117,8 +117,20 @@ simulo run samples/byo-urdf-arm/eval.py --policy <policy-id>:best
 The rule checks that every joint is within 0.1 rad of its target and that the arm settles below
 0.1 rad/s.
 
-<!-- REPORT EXCERPT: filled after the GPU run -->
+The start of a real report, from evaluating a policy trained with this sample's default settings (256 environments, 150 iterations):
+
 ```text
+RESULT
+  0 of 100 episodes succeeded. Likely range: 0% to 4%.
+  Each check:  every joint within 0.1 rad of its target 0 of 100 · arm settled below 0.1 rad/s 3 of 100
+  Among 100 failures: 97 missed both checks, 3 missed only "every joint within 0.1 rad of its target".
+
+WHAT WAS TESTED
+  Policy     policy_flat-inlet-fwawnt:best, saved at iteration 150 (training reward -284.3)
+  Task       ByoArmTask in task.py, unchanged since the policy was trained
+  Episodes   0 to 99, the same starting positions every time
+  Actions    the policy's best-guess action, without training's random variation
+  Success    completed_stably() in eval.py, with checks: every joint within 0.1 rad of its target, arm settled below 0.1 rad/s
 ```
 
 ## What to expect

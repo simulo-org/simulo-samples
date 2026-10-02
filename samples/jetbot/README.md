@@ -73,8 +73,19 @@ simulo run samples/jetbot/eval.py --policy <policy-id>:best
 
 The rule checks that the robot moves at least 0.1 m/s in its commanded direction at the end.
 
-<!-- REPORT EXCERPT: filled after the GPU run -->
+The start of a real report, from evaluating a policy trained with this sample's default settings (16 environments, 700 iterations):
+
 ```text
+RESULT
+  100 of 100 episodes succeeded. Likely range: 96% to 100%.
+  Each check:  moved at least 0.1 m/s in the commanded direction 100 of 100
+
+WHAT WAS TESTED
+  Policy     policy_persimmon-caption-errwkb:best, saved at iteration 700 (training reward 332.4)
+  Task       JetbotTask in task.py, unchanged since the policy was trained
+  Episodes   0 to 99, the same starting positions every time
+  Actions    the policy's best-guess action, without training's random variation
+  Success    kept_moving() in eval.py, with checks: moved at least 0.1 m/s in the commanded direction
 ```
 
 ## What to expect
