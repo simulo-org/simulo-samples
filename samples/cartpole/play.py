@@ -1,4 +1,4 @@
-"""Play a trained Cartpole policy."""
+"""Play a trained Cartpole policy and record it."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from task import CartpoleTask, app
 def play(policy: simulo.PolicyCheckpoint, episodes: int = 3) -> None:
     """Play a policy: simulo run play.py --policy policy_x:best."""
     env = simulo.LearningEnv(
-        task=CartpoleTask(),
+        task=CartpoleTask(with_camera=True),
         num_envs=1,
         device="cuda",
         dt=1.0 / 120.0,
@@ -19,10 +19,11 @@ def play(policy: simulo.PolicyCheckpoint, episodes: int = 3) -> None:
         env_spacing=4.0,
         headless=True,
         seed=42,
+        enable_cameras=True,
     )
     player = simulo.RLPlayer(env=env, policy=policy, device="cuda")
     try:
-        player.play(num_episodes=episodes)
+        player.play(num_episodes=episodes, record=simulo.RecordConfig(include_video=True))
     finally:
         player.close()
         env.close()

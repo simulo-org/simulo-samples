@@ -128,6 +128,10 @@ class CartpoleTask(simulo.Task):
     episode_length_buf: torch.Tensor
     reset_terminated: torch.Tensor
 
+    def __init__(self, with_camera: bool = False):
+        super().__init__()
+        self._with_camera = with_camera
+
     def build(self, scene: simulo.Scene) -> None:
         scene.add(simulo.Terrain.plane(name="ground"), at="/", per_environment=False)
         scene.add(
@@ -137,6 +141,21 @@ class CartpoleTask(simulo.Task):
         )
         self.robot = simulo.Robot(asset=cartpole, initial_pose=simulo.Pose.identity())
         scene.add(self.robot, at="/World/Robot")
+
+        # Playback adds one world-frame camera. Training keeps the default off,
+        # so its scene and render cost remain unchanged.
+        if self._with_camera:
+            scene.add(
+                simulo.Camera(
+                    width=640,
+                    height=480,
+                    data_types=["rgb"],
+                    update_period=1.0 / 30.0,
+                    offset=simulo.SensorOffset.look_at(pos=(0.0, 0.0, 5.0), target=(0.0, 0.0, 0.0)),
+                ),
+                at="/World/overhead_cam",
+                per_environment=False,
+            )
 
     def on_start(self, env: simulo.LearningEnv) -> None:
         self._cart_dof_idx = self.robot.find_joints("slider_to_cart")
