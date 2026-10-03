@@ -17,12 +17,15 @@ def evaluate(
     actions: str = "best",
 ):
     zone_center_x = float(os.environ.get("DEMO_ZONE_CENTER_X", "2.5"))
+    # Use the same 8 m spacing as training, so each copy's zone and robot sit
+    # where training put them.
     return simulo.evaluate(
         ShapelyZoneTask(zone_center_x=zone_center_x),
         policy,
         episodes=episodes,
         num_envs=num_envs,
         actions=actions,
+        env_spacing=8.0,
     )
 
 

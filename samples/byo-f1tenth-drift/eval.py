@@ -14,8 +14,15 @@ def evaluate(
     num_envs: int = 100,
     actions: str = "best",
 ):
+    # Training spaces the copies 7 m apart, because a track spans about 4 m by 5.6 m.
+    # Evaluate with the same spacing.
     return simulo.evaluate(
-        F1TenthDriftTask(), policy, episodes=episodes, num_envs=num_envs, actions=actions
+        F1TenthDriftTask(),
+        policy,
+        episodes=episodes,
+        num_envs=num_envs,
+        actions=actions,
+        env_spacing=7.0,
     )
 
 
