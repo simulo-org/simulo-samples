@@ -53,11 +53,12 @@ DIFFICULTIES = ("introductory", "intermediate", "advanced")
 # Each sample submits exactly one job, from train.py. A sample may also keep its
 # application and task in task.py, which train.py imports; a task file declares no job.
 ENTRY_FILE = "train.py"
-# A sample may also keep one preview or evaluation job beside its training job.
+# A sample may also keep one preview, evaluation, or play job beside its training job.
 PREVIEW_FILE = "preview.py"
 EVAL_FILE = "eval.py"
+PLAY_FILE = "play.py"
 SAMPLE_FILES = {ENTRY_FILE, "README.md", ".simuloignore"}
-OPTIONAL_SAMPLE_FILES = {"task.py", PREVIEW_FILE, EVAL_FILE}
+OPTIONAL_SAMPLE_FILES = {"task.py", PREVIEW_FILE, EVAL_FILE, PLAY_FILE}
 IGNORED_SAMPLE_ENTRIES = {"__pycache__", ".simulo"}
 SLUG_PATTERN = re.compile(r"[a-z0-9][a-z0-9-]*\Z")
 # The kinds `simulo asset publish --kind` accepts. A catalog reference is
@@ -494,6 +495,48 @@ def discover(entries: list[dict[str, Any]]) -> None:
                         )
                     print(
                         f"Packaged {entry['slug']} evaluation job {next(iter(jobs))!r}; "
+                        "stopped at checkpoint resolution."
+                    )
+                finally:
+                    shutil.rmtree(package_dir, ignore_errors=True)
+
+            play_path = entry_path.parent / PLAY_FILE
+            if play_path.is_file():
+                try:
+                    checked += 1
+                    result = subprocess.run(
+                        [
+                            executable,
+                            "run",
+                            str(play_path.relative_to(ROOT)),
+                            "--policy",
+                            "policy_brisk-heron-4f8k2m:best",
+                        ],
+                        cwd=ROOT,
+                        env=environment,
+                        text=True,
+                        capture_output=True,
+                        check=False,
+                    )
+                    # An offline client cannot resolve a checkpoint, so playback stops after
+                    # discovery and packaging. The manifest still proves the declared play job.
+                    checkpoint_refusal = "needs a cloud control plane to resolve the checkpoint"
+                    if result.returncode != 1 or checkpoint_refusal not in result.stderr:
+                        fail(
+                            f"discovery failed for {entry['slug']}/{PLAY_FILE} with exit "
+                            f"{result.returncode}: {result.stderr.strip() or result.stdout.strip()}"
+                        )
+                    jobs = _packaged_jobs(package_dir)
+                    job_types = [
+                        job.get("type") if isinstance(job, dict) else None for job in jobs.values()
+                    ]
+                    if job_types != ["play"]:
+                        fail(
+                            f"{entry['slug']}/{PLAY_FILE} must declare one play job, "
+                            f"found {job_types}"
+                        )
+                    print(
+                        f"Packaged {entry['slug']} play job {next(iter(jobs))!r}; "
                         "stopped at checkpoint resolution."
                     )
                 finally:

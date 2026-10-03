@@ -36,6 +36,7 @@ still be imported on a laptop with no `torch` installed.
 - `train.py`: the one job you submit, `train`. It imports `app` and `CartpoleTask` from
   `task.py`.
 - `eval.py`: the evaluation job and its pole-balancing success rule.
+- `play.py`: the job that plays a trained policy: `simulo run play.py --policy policy_<id>:best`.
 - `preview.py`: a `preview` job that checks the robot inside `CartpoleTask` before you train.
   It makes no policy.
 - `.simuloignore`: files `simulo run` leaves out of the uploaded package.
