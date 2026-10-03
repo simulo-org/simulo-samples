@@ -14,6 +14,8 @@ than an interface: there is no API here whose compatibility a semantic version c
   `git clone`, with options to choose a destination and a Git branch, tag, or commit.
 - `eval.py` beside `train.py` in every sample, with a sample-specific success rule and a
   documented command for evaluating a saved `best` checkpoint.
+- `play.py` in the Cartpole sample, which plays a trained policy and records the playback
+  with an overhead camera that only playback turns on.
 
 ### Changed
 
