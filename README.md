@@ -70,6 +70,7 @@ the assets it needs.
 | [Cartpole](samples/cartpole/) | Introductory | Train a policy | `simulo/robot/cartpole:v1` |
 | [JetBot](samples/jetbot/) | Introductory | Train a policy | `simulo/robot/jetbot:v1` |
 | [Bring your own F1TENTH-compatible car](samples/byo-f1tenth-drift/) | Intermediate | Bring your own robot | `robot/f1tenth:v1` |
+| [Bring your own URDF](samples/byo-urdf-arm/) | Intermediate | Bring your own robot | `robot/byo-urdf-arm:v1` |
 <!-- END INDEX -->
 
 ## Bring your own robot

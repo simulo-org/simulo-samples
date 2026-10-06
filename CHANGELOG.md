@@ -14,9 +14,9 @@ than an interface: there is no API here whose compatibility a semantic version c
 - Clamp actions before they reach each task.
 - Document the preview, train, evaluate, and play lifecycle.
 - Withdraw Humanoid while its default training is retuned to reliably learn to walk.
-- Withdraw Franka reach, Install a PyPI dependency, and Bring your own URDF while their
-  defaults are retuned. Each returns once its full preview, train, evaluate, and play run
-  is measured to work.
+- Withdraw Franka reach and Install a PyPI dependency while their defaults are retuned.
+  Each returns once its full preview, train, evaluate, and play run is measured to work.
+- Update Bring your own URDF with preview, evaluate, and play files and a damped drive.
 
 ## [2026.09.1] - 2026-09-06
 

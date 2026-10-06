@@ -39,3 +39,17 @@ difficulty = "intermediate"
 learning_goal = "Bring your own robot"
 runtime_minutes = 4
 published = true
+
+[[samples]]
+slug = "byo-urdf-arm"
+title = "Bring your own URDF"
+robot = "Your own three-joint arm"
+task = "Publish a robot you wrote as a URDF to your organization's catalog, then train a reaching policy on it."
+concepts = ["simulo asset publish", "organization catalog", "URDF robots", "joint-space reaching"]
+assets = ["robot/byo-urdf-arm:v1"]
+jobs = ["train"]
+gpu = true
+difficulty = "intermediate"
+learning_goal = "Bring your own robot"
+runtime_minutes = 8
+published = true
