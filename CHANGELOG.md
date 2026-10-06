@@ -16,8 +16,8 @@ than an interface: there is no API here whose compatibility a semantic version c
 - Withdraw Humanoid while its default training is retuned to reliably learn to walk.
 - Withdraw Franka reach while its defaults are retuned. It returns once its full preview,
   train, evaluate, and play run is measured to work.
-- Withdraw Bring your own URDF while its default training is retuned. It returns once its
-  default run is measured to work.
+- Bring back Bring your own URDF. Each action now names the angle a joint should hold, and the
+  default training reaches every joint target in 98 of 100 evaluation episodes.
 - Update the Cartpole, JetBot, and F1TENTH results from a staging run on 2026-10-06 with
   simulo 0.32.0.
 - Bring back Install a PyPI dependency. Its reward is now computed by Shapely for all robots
