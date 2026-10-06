@@ -74,20 +74,23 @@ simulo recordings <job-id>
 
 ## What to expect
 
-One staging run on 2026-10-05 with `simulo 0.32.0` produced the following results. Preview
-passed, with expected warnings that the passive pole was still swinging and was not driven. Its
-recording verified as 11,576 MCAP messages and included Lichtblick and Foxglove layout files.
+One staging run on 2026-10-06 with `simulo 0.32.0` produced the preview, training, and
+evaluation results below. Preview passed, with expected warnings that the passive pole was still
+swinging and was not driven.
 
-Training ran for 94.580 seconds. The returned best reward was `295.0882`; both `best` and
-`latest` were saved at iteration 200 in `policy_modern-pepato-75dpmx`.
+Training ran for about 90 seconds. The returned best reward was about 294; both `best` and
+`latest` were saved at iteration 200 in `policy_apricot-gouda-sxhfb2`.
 
 The standard evaluation reported `100 of 100 episodes succeeded`, with both the time-limit and
-10-degree checks at 100 of 100. Tightening the rule to 5 degrees also produced 100 of 100. The
-restored 10-degree comparison found no clear difference: `best` and `latest` were each 100 of
-100, with zero changed outcomes.
+10-degree checks at 100 of 100. The comparison found no clear difference: `best` and `latest`
+were each 100 of 100, with zero changed outcomes.
 
-Playback completed 3 episodes and 897 steps with mean reward `294.89 +/- 3.44`. The verified
-MCAP contained 7,187 messages, including 897 packets on each overhead-camera video channel.
+An earlier staging run on 2026-10-05, also with `simulo 0.32.0`, trained its own policy and
+measured the rest. Its preview recording verified as 11,576 MCAP messages and included Lichtblick
+and Foxglove layout files. Tightening that policy's rule to 5 degrees also produced 100 of 100.
+Its playback completed 3 episodes and 897 steps with mean reward `294.89 +/- 3.44`, and the
+verified MCAP contained 7,187 messages, including 897 packets on each overhead-camera video
+channel.
 
 ## Inspecting results
 

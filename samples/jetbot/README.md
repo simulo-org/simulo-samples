@@ -69,21 +69,23 @@ simulo recordings <job-id>
 
 ## What to expect
 
-One staging run on 2026-10-05 with `simulo 0.32.0` produced the following results. Preview passed
-all checks. The focused preview confirmed action 0 drove the left wheel and action 1 drove the
-right wheel; both wheel sweeps passed. The preview recording verified as 7,846 MCAP messages and
-included Lichtblick and Foxglove layout files.
+One staging run on 2026-10-06 with `simulo 0.32.0` produced the preview, training, and
+evaluation results below. Preview passed all checks.
 
-Training ran for 249.014 seconds. The returned best reward was `325.0201`; `best` was saved at
-iteration 600 and `latest` at iteration 700 in `policy_eminent-commit-26xr5e`.
+The default training command created 16 environments, matching the evaluation run's capacity,
+and ran for about 4 minutes. The returned best reward was about 335; both `best` and `latest`
+were saved at iteration 700 in `policy_clever-glacier-9nz091`.
 
 Evaluation at the training spacing reported `100 of 100 episodes succeeded`, with all episodes
 moving at least `0.1 m/s` in the commanded direction. The comparison found no clear difference:
 `best` and `latest` were each 100 of 100, with zero changed outcomes.
 
-Playback completed 3 episodes and 897 steps with mean reward `318.05 +/- 26.77`. Its verified
-MCAP contained 7,187 messages, including 897 packets on each play-camera video channel. The
-default training command created 16 environments, matching the evaluation run's capacity.
+An earlier staging run on 2026-10-05, also with `simulo 0.32.0`, trained its own policy and
+measured the rest. Its focused preview confirmed action 0 drove the left wheel and action 1
+drove the right wheel; both wheel sweeps passed. Its preview recording verified as 7,846 MCAP
+messages and included Lichtblick and Foxglove layout files. Its playback completed 3 episodes and
+897 steps with mean reward `318.05 +/- 26.77`, and the verified MCAP contained 7,187 messages,
+including 897 packets on each play-camera video channel.
 
 ## Inspecting results
 

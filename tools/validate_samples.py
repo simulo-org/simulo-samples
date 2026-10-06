@@ -267,7 +267,7 @@ def parse_asset_reference(reference: str, label: str) -> tuple[str, str, bool] |
     Returns None for a reference that names something other than a catalog asset. The
     assets column carries those too: `simulo/gpu-rl:2026.06` is a job runtime, and it has
     the same two-segment shape as the publisher-less asset reference
-    `robot/byo-urdf-arm:v1`. The version is what separates them, because the catalog
+    `robot/f1tenth:v1`. The version is what separates them, because the catalog
     assigns asset versions as v1, v2, and so on while a runtime carries its image's
     calendar version. Every entry therefore has to name a version for this to decide
     anything.

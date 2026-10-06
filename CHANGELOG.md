@@ -16,7 +16,10 @@ than an interface: there is no API here whose compatibility a semantic version c
 - Withdraw Humanoid while its default training is retuned to reliably learn to walk.
 - Withdraw Franka reach and Install a PyPI dependency while their defaults are retuned.
   Each returns once its full preview, train, evaluate, and play run is measured to work.
-- Update Bring your own URDF with preview, evaluate, and play files and a damped drive.
+- Withdraw Bring your own URDF while its default training is retuned. It returns once its
+  default run is measured to work.
+- Update the Cartpole, JetBot, and F1TENTH results from a staging run on 2026-10-06 with
+  simulo 0.32.0.
 
 ## [2026.09.1] - 2026-09-06
 
