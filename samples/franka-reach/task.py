@@ -1,0 +1,282 @@
+"""Define a reaching task for a Franka Panda arm.
+
+A three-value Cartesian action moves a target point, and differential inverse
+kinematics converts that target into commands for the arm's seven joints. The
+policy observes that commanded target as well as the hand and the goal.
+"""
+
+from __future__ import annotations
+
+from typing import Tuple
+
+import simulo
+
+# The Franka Panda arm, a global-catalog asset. Captured at module level
+# (construction-capture idiom): submit resolves and pins this exact version
+# before the job ever runs.
+franka = simulo.Asset.from_registry("simulo/robot/franka-panda:v1")
+
+app = simulo.App("franka-reach")
+
+# The ONE module-level heavy import, deferred under the runtime guard.
+with app.runtime.imports():
+    import torch  # noqa: F401  (resolved only during execution)
+
+
+@app.runtime.torch_jit
+def _compute_rewards(
+    rew_scale_distance: float,
+    rew_scale_fine: float,
+    rew_scale_action: float,
+    distance_std: float,
+    fine_std: float,
+    ee_pos: torch.Tensor,
+    goal_pos: torch.Tensor,
+    actions: torch.Tensor,
+) -> torch.Tensor:
+    """JIT-compiled reward kernel for task-space reaching.
+
+    Two nested distance terms plus an action penalty:
+
+    * a wide ``tanh`` shell that pulls the hand across the workspace toward
+      the goal from anywhere,
+    * a narrow one that only pays out in the last few centimetres, so the
+      policy keeps improving after the wide term has saturated,
+    * a small penalty on action magnitude, which stops the policy from
+      thrashing the target point around once it is already on the goal.
+    """
+    distance = torch.norm(goal_pos - ee_pos, dim=-1)
+    rew_coarse = rew_scale_distance * (1.0 - torch.tanh(distance / distance_std))
+    rew_fine = rew_scale_fine * (1.0 - torch.tanh(distance / fine_std))
+    rew_action = rew_scale_action * torch.sum(torch.square(actions), dim=-1)
+
+    reward: torch.Tensor = rew_coarse + rew_fine + rew_action
+    # Keep the (num_envs,) per-env reward contract even when num_envs == 1.
+    return reward.view(-1)
+
+
+class FrankaReachTask(simulo.Task):
+    """Move a Franka Panda's hand onto a goal point that moves every episode.
+
+    Observation (26-dim): 7 joint positions (relative to the arm's rest pose),
+    7 joint velocities, the hand position, the goal position, and the vector
+    from hand to goal, plus the commanded IK target. All positions are in the
+    arm's own base frame.
+
+    Action (3-dim): a Cartesian delta applied to the IK target point. The
+    controller turns that into joint commands.
+
+    Defined at module level: ``simulo.Task`` is a torch-free contract stand-in
+    at submit and the real training base during execution, so the same class
+    authors lean and trains heavy.
+    """
+
+    observation_dim = 26
+    action_dim = 3
+
+    episode_length_s = 4.0
+
+    # How far one full-scale action moves the IK target point, per step [m].
+    action_scale = 0.05
+
+    # The link the controller drives and the joints it is allowed to move.
+    # `panda_hand` is the wrist plate; the two finger joints are deliberately
+    # NOT in this list, because this task has no gripper.
+    end_effector = "panda_hand"
+    arm_joint_pattern = "panda_joint.*"
+
+    # Goal sampling box, in the arm's base frame [m]. Sized to sit inside the
+    # Panda's comfortable reach so the IK solver always has an answer.
+    goal_x_range = (0.35, 0.60)
+    goal_y_range = (-0.25, 0.25)
+    goal_z_range = (0.20, 0.50)
+
+    # Where the commanded point starts every episode: the centre of the goal
+    # box, in the arm's base frame [m]. Fixed and identical for every episode,
+    # so the policy's job (walk the point from here onto the goal) is a real
+    # one and the first IK request of an episode is always a modest, bounded
+    # move rather than a jump from wherever the last episode ended.
+    initial_target = (0.475, 0.0, 0.35)
+
+    # The IK target is clamped to this box so a run of large actions cannot
+    # walk the commanded point off into a region with no solution.
+    target_x_range = (0.25, 0.70)
+    target_y_range = (-0.40, 0.40)
+    target_z_range = (0.10, 0.65)
+
+    # Hand orientation held for the whole episode: pointing straight down,
+    # as a w-first quaternion. Reaching is a position task; pinning the
+    # orientation keeps the arm in a sane posture without adding 3 more
+    # action dimensions.
+    ee_orientation = (0.0, 1.0, 0.0, 0.0)
+
+    rew_scale_distance = 1.0
+    rew_scale_fine = 0.5
+    rew_scale_action = -0.01
+    distance_std = 0.20
+    fine_std = 0.04
+
+    # Framework-injected at runtime by the training base (declared here only so
+    # the type checker sees the names the methods read; the annotations are
+    # PEP 563 strings and never shadow the inherited values).
+    device: str
+    num_envs: int
+    max_episode_length: int
+    episode_length_buf: torch.Tensor
+    reset_terminated: torch.Tensor
+
+    def __init__(self, with_camera: bool = False):
+        super().__init__()
+        self._with_camera = with_camera
+
+    def build(self, scene: simulo.Scene) -> None:
+        scene.add(simulo.Terrain.plane(name="ground"), at="/", per_environment=False)
+        scene.add(
+            simulo.Light.dome(name="light", intensity=2500.0, color=(0.75, 0.75, 0.75)),
+            at="/",
+            per_environment=False,
+        )
+        self.robot = simulo.Robot(asset=franka, initial_pose=simulo.Pose.identity())
+        scene.add(self.robot, at="/World/Robot")
+        if self._with_camera:
+            scene.add(
+                simulo.Camera(
+                    width=640,
+                    height=480,
+                    data_types=["rgb"],
+                    update_period=1.0 / 30.0,
+                    offset=simulo.SensorOffset.look_at(
+                        pos=(1.8, 1.8, 1.4), target=(0.45, 0.0, 0.3)
+                    ),
+                ),
+                at="/World/play_camera",
+                per_environment=False,
+            )
+
+    def on_start(self, env: simulo.LearningEnv) -> None:
+        self._arm_dof_idx = self.robot.find_joints(self.arm_joint_pattern)
+
+        # The controller is constructed against the ALREADY-BUILT robot, here
+        # in on_start, because it reads the robot's joints and bodies, which do not
+        # exist during build(). Its joint-name pattern resolves on first use.
+        # Each command supplies the hand position plus the same w-first
+        # orientation quaternion held for every environment below.
+        self.ik = simulo.DifferentialIKController(
+            robot=self.robot,
+            end_effector=self.end_effector,
+            joints=self.arm_joint_pattern,
+            ik_method="dls",
+            command_type="pose",
+        )
+
+        self._default_joint_pos = self.robot.default_joint_positions
+
+        zeros = torch.zeros(self.num_envs, 3, device=self.device)
+        self.goal_pos = zeros.clone()
+        self._actions = torch.zeros(self.num_envs, self.action_dim, device=self.device)
+        self._initial_target = torch.tensor(self.initial_target, device=self.device).repeat(
+            self.num_envs, 1
+        )
+        self._target_pos = self._initial_target.clone()
+
+        self._sample_goals(torch.arange(self.num_envs, device=self.device))
+
+    # -- helpers ----------------------------------------------------------
+
+    def _sample_goals(self, env_ids: torch.Tensor) -> None:
+        """Draw a fresh goal point for each environment being reset."""
+        count = len(env_ids)
+        for axis, (low, high) in enumerate(
+            (self.goal_x_range, self.goal_y_range, self.goal_z_range)
+        ):
+            self.goal_pos[env_ids, axis] = torch.empty(count, device=self.device).uniform_(
+                low, high
+            )
+
+    def hand_position(self) -> torch.Tensor:
+        """Hand position in the arm's base frame, shape ``(num_envs, 3)``.
+
+        ``get_body_pose_in_base_frame`` is the supported, typed readback; it
+        returns ``(position, orientation)`` and this task only needs the
+        position. Before the runtime attaches the robot it returns
+        ``(None, None)``, so the zeroes below are the honest pre-attach value.
+        """
+        position, _ = self.robot.get_body_pose_in_base_frame(self.end_effector)
+        if position is None:
+            return torch.zeros(self.num_envs, 3, device=self.device)
+        return position
+
+    def _clamp_target(self) -> None:
+        for axis, (low, high) in enumerate(
+            (self.target_x_range, self.target_y_range, self.target_z_range)
+        ):
+            self._target_pos[:, axis] = self._target_pos[:, axis].clamp(low, high)
+
+    # -- the Task contract ------------------------------------------------
+
+    def get_observations(self) -> torch.Tensor:
+        joint_pos = self.robot.state.joint_positions[:, self._arm_dof_idx]
+        joint_vel = self.robot.state.joint_velocities[:, self._arm_dof_idx]
+        joint_pos_rel = joint_pos - self._default_joint_pos[:, self._arm_dof_idx]
+        ee_pos = self.hand_position()
+        return torch.cat(
+            (
+                joint_pos_rel,
+                joint_vel,
+                ee_pos,
+                self.goal_pos,
+                self.goal_pos - ee_pos,
+                self._target_pos,
+            ),
+            dim=-1,
+        )
+
+    def get_rewards(self) -> torch.Tensor:
+        ee_pos = self.hand_position()
+        return _compute_rewards(
+            self.rew_scale_distance,
+            self.rew_scale_fine,
+            self.rew_scale_action,
+            self.distance_std,
+            self.fine_std,
+            ee_pos,
+            self.goal_pos,
+            self._actions,
+        )
+
+    def get_dones(self) -> Tuple[dict[str, torch.Tensor], torch.Tensor]:
+        truncated = self.episode_length_buf >= self.max_episode_length - 1
+        terminated = {}
+        return terminated, truncated
+
+    def apply_actions(self, actions: torch.Tensor) -> None:
+        # Trained policies can emit values outside the range. Clamp before scaling
+        # so the robot is not over-driven.
+        actions = torch.clamp(actions, -1.0, 1.0)
+        self._actions = actions
+        self._target_pos = self._target_pos + self.action_scale * actions
+        self._clamp_target()
+        # Keep the hand's w-first orientation fixed while the task controls
+        # only its Cartesian target. The controller writes the joint targets.
+        self.ik.move_to(self._target_pos, orientation=self.ee_orientation)
+
+    def reset_idx(self, env_ids: torch.Tensor) -> None:
+        if len(env_ids) == 0:
+            return
+        self.robot.reset(env_ids)
+
+        # Back to the arm's rest pose with a little joint noise, so every
+        # episode starts from a slightly different posture. The noise goes on
+        # the SEVEN ARM JOINTS only: the Franka's two finger joints are
+        # prismatic with 0.04 m of total travel, and +/-0.05 m of noise placed
+        # them outside their own limits at the start of an episode. They are
+        # not part of this task either -- its action is a 3-dim Cartesian
+        # nudge, and it declares no gripper.
+        joint_pos = self.robot.default_joint_positions[env_ids]
+        arm = self._arm_dof_idx
+        joint_pos[:, arm] += torch.empty_like(joint_pos[:, arm]).uniform_(-0.05, 0.05)
+        joint_vel = self.robot.default_joint_velocities[env_ids]
+        self.robot.set_joint_state(joint_pos, velocities=joint_vel, env_ids=env_ids)
+
+        self._sample_goals(env_ids)
+        self._target_pos[env_ids] = self._initial_target[env_ids]

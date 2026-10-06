@@ -69,6 +69,7 @@ the assets it needs.
 | --- | --- | --- | --- |
 | [Cartpole](samples/cartpole/) | Introductory | Train a policy | `simulo/robot/cartpole:v1` |
 | [JetBot](samples/jetbot/) | Introductory | Train a policy | `simulo/robot/jetbot:v1` |
+| [Franka reach](samples/franka-reach/) | Intermediate | Train a policy | `simulo/robot/franka-panda:v1` |
 | [Install a PyPI dependency](samples/pip-install-shapely/) | Intermediate | Bring your own dependency | `simulo/robot/jetbot:v1`, `simulo/gpu-rl:2026.06` |
 | [Bring your own F1TENTH-compatible car](samples/byo-f1tenth-drift/) | Intermediate | Bring your own robot | `robot/f1tenth:v1` |
 | [Bring your own URDF](samples/byo-urdf-arm/) | Intermediate | Bring your own robot | `robot/byo-urdf-arm:v1` |

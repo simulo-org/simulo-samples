@@ -14,8 +14,8 @@ than an interface: there is no API here whose compatibility a semantic version c
 - Clamp actions before they reach each task.
 - Document the preview, train, evaluate, and play lifecycle.
 - Withdraw Humanoid while its default training is retuned to reliably learn to walk.
-- Withdraw Franka reach while its defaults are retuned. It returns once its full preview,
-  train, evaluate, and play run is measured to work.
+- Bring back Franka reach. It trains longer by default so it reaches the goal reliably, and
+  the arm now observes its own target.
 - Bring back Bring your own URDF. Each action now names the angle a joint should hold, and the
   default training reaches every joint target in 98 of 100 evaluation episodes.
 - Update the Cartpole, JetBot, and F1TENTH results from a staging run on 2026-10-06 with
