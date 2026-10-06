@@ -229,23 +229,36 @@ def validate_directories(entries: list[dict[str, Any]]) -> None:
         )
 
 
-def find_observation_calls(path: Path) -> list[int]:
-    """Return lines that call get_observations() in an evaluation entry point."""
+# simulo.evaluate() places environments this far apart when its call passes no
+# env_spacing, so an evaluation that omits the keyword uses this value.
+EVALUATE_DEFAULT_ENV_SPACING = 4.0
+
+
+def parse_python(path: Path) -> ast.Module:
     try:
-        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        return ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     except SyntaxError as error:
         fail(f"{path.relative_to(ROOT)} is not valid Python: {error.msg} on line {error.lineno}")
+
+
+def calls_named(tree: ast.Module, name: str) -> list[ast.Call]:
+    """Calls to `name(...)` or `<anything>.name(...)`."""
     return [
-        node.lineno
+        node
         for node in ast.walk(tree)
         if isinstance(node, ast.Call)
         and (
             isinstance(node.func, ast.Name)
-            and node.func.id == "get_observations"
+            and node.func.id == name
             or isinstance(node.func, ast.Attribute)
-            and node.func.attr == "get_observations"
+            and node.func.attr == name
         )
     ]
+
+
+def find_observation_calls(path: Path) -> list[int]:
+    """Return lines that call get_observations() in an evaluation entry point."""
+    return [call.lineno for call in calls_named(parse_python(path), "get_observations")]
 
 
 def validate_evaluations(entries: list[dict[str, Any]]) -> None:
@@ -258,6 +271,100 @@ def validate_evaluations(entries: list[dict[str, Any]]) -> None:
         fail(
             "evaluation must use independent task state, not get_observations(): "
             + ", ".join(violations)
+        )
+
+
+def spacing_keyword(call: ast.Call, path: Path, default: float | None = None) -> float:
+    """The literal env_spacing a call passes, or `default` when it passes none."""
+    location = f"{path.relative_to(ROOT)}:{call.lineno}"
+    if any(keyword.arg is None for keyword in call.keywords):
+        fail(
+            f"{location} passes **keyword arguments, so its env_spacing cannot be read "
+            "without running it; pass env_spacing=<number> directly"
+        )
+    for keyword in call.keywords:
+        if keyword.arg != "env_spacing":
+            continue
+        value = keyword.value
+        if (
+            isinstance(value, ast.Constant)
+            and type(value.value) in (int, float)
+            and value.value > 0
+        ):
+            return float(value.value)
+        fail(
+            f"{location} sets env_spacing to something other than a positive number, so it "
+            "cannot be compared with the other entry point; write the number itself"
+        )
+    if default is None:
+        fail(
+            f"{location} does not pass env_spacing, so the spacing training uses cannot be "
+            "read from the file; pass env_spacing=<number>"
+        )
+    return default
+
+
+def training_env_spacing(directory: Path) -> tuple[float, Path]:
+    """The spacing every LearningEnv the training job builds uses.
+
+    train.py usually builds the environment itself. When it builds none, the sample
+    shares a helper in task.py that train.py calls, so that file is read instead.
+    """
+    for path in (directory / ENTRY_FILE, directory / "task.py"):
+        calls = calls_named(parse_python(path), "LearningEnv")
+        if not calls:
+            continue
+        spacings = {spacing_keyword(call, path) for call in calls}
+        if len(spacings) != 1:
+            values = ", ".join(f"{value:g}" for value in sorted(spacings))
+            fail(
+                f"{path.relative_to(ROOT)} builds environments with different env_spacing "
+                f"values ({values}); use one value so evaluation can match it"
+            )
+        return spacings.pop(), path
+    fail(
+        f"neither samples/{directory.name}/{ENTRY_FILE} nor samples/{directory.name}/task.py "
+        "calls LearningEnv(...), so the training env_spacing cannot be found; build the "
+        "training environment with an explicit env_spacing in one of them"
+    )
+
+
+def evaluation_env_spacing(directory: Path) -> float:
+    """The spacing the one simulo.evaluate() call in eval.py uses."""
+    path = directory / EVAL_FILE
+    # eval.py names its own job function evaluate, so only the qualified call counts.
+    calls = [
+        call
+        for call in calls_named(parse_python(path), "evaluate")
+        if isinstance(call.func, ast.Attribute)
+        and isinstance(call.func.value, ast.Name)
+        and call.func.value.id == "simulo"
+    ]
+    if len(calls) != 1:
+        fail(
+            f"{path.relative_to(ROOT)} must call simulo.evaluate(...) exactly once so its "
+            f"env_spacing can be compared with training; found {len(calls)} calls"
+        )
+    return spacing_keyword(calls[0], path, default=EVALUATE_DEFAULT_ENV_SPACING)
+
+
+def validate_env_spacing(entries: list[dict[str, Any]]) -> None:
+    """Evaluation must lay environments out exactly as training did."""
+    mismatches = []
+    for entry in present_entries(entries):
+        directory = SAMPLES_DIR / entry["slug"]
+        trained, training_path = training_env_spacing(directory)
+        evaluated = evaluation_env_spacing(directory)
+        if trained != evaluated:
+            mismatches.append(
+                f"{training_path.relative_to(ROOT)} trains with env_spacing={trained:g} but "
+                f"samples/{entry['slug']}/{EVAL_FILE} evaluates with env_spacing={evaluated:g}"
+            )
+    if mismatches:
+        fail(
+            "evaluation must use the same env_spacing as training; set env_spacing in "
+            "eval.py's simulo.evaluate(...) call to the training value:\n- "
+            + "\n- ".join(mismatches)
         )
 
 
@@ -636,6 +743,7 @@ def main() -> int:
         if entries:
             validate_readmes(entries)
             validate_evaluations(entries)
+            validate_env_spacing(entries)
         if args.write_index:
             write_index(entries)
         validate_index(entries)

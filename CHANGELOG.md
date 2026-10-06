@@ -9,7 +9,7 @@ than an interface: there is no API here whose compatibility a semantic version c
 ## [Unreleased]
 
 - Add preview and play files to every sample.
-- Make evaluation spacing match training.
+- Make evaluation spacing match training, and check that every sample keeps it matched.
 - Update Humanoid so it walks.
 - Clamp actions before they reach each task.
 - Document the preview, train, evaluate, and play lifecycle.
