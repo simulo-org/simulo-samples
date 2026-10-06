@@ -32,8 +32,17 @@ simulo asset publish assets/robot/byo-urdf-arm --kind robot --name byo-urdf-arm 
 simulo asset inspect robot/byo-urdf-arm:v1
 ```
 
-If `simulo asset inspect robot/byo-urdf-arm:v1` already shows the arm, skip the publish.
-Publishing again creates `:v2`, and the jobs in this sample keep using `:v1`.
+If `simulo asset inspect robot/byo-urdf-arm:v1` already shows the arm, skip the publish. If your
+organization already has the asset with the same content, publishing again does nothing: it
+reports that `:v1` is already published, creates no new version, and runs no validation. To
+check the asset again without publishing, run the validate command:
+
+```bash
+simulo asset validate assets/robot/byo-urdf-arm --kind robot --name byo-urdf-arm --entry robot.urdf
+```
+
+On staging this passed with three warnings in 37 seconds. A changed file publishes as `:v2`, and
+the jobs in this sample keep using `:v1`.
 
 The reference has no publisher segment, so it resolves in the organization you are signed in to.
 

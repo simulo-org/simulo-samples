@@ -46,8 +46,13 @@ simulo asset publish assets/robot/f1tenth \
 simulo asset inspect robot/f1tenth:v1
 ```
 
-Publishing the same name again creates a new version. This sample remains pinned to `:v1` unless
-you update `task.py`.
+Your first publish creates `:v1` in your organization. To see its content digest, run
+`simulo asset inspect robot/f1tenth:v1 --json` and read the `content_digest` field. The digest
+depends on the file you upload, so yours may differ from the one quoted under "What to expect".
+
+If your organization already has the asset with the same content, publishing again does nothing.
+A changed file publishes as `:v2`, and this sample remains pinned to `:v1` unless you update
+`task.py`.
 
 ### Preview
 
@@ -101,9 +106,11 @@ comparison (job `job_versatile-swatch-4242mz`) found no clear difference: `best`
 scored 92 of 100, with zero changed outcomes, because both labels pointed at the same checkpoint.
 
 An earlier staging run on 2026-10-05, also with `simulo 0.32.0`, trained its own policy
-(job `job_horizontal-beam-kmsgm3`) and measured the rest. It recorded the asset's content digest
-as `sha256:aa5fc36e5f45c1e56615371b50e201d2622d3e8e7dfd7e1951181a416a95c998`, shown as
-`content_digest` by `simulo asset inspect robot/f1tenth:v1 --json`. Its preview
+(job `job_horizontal-beam-kmsgm3`) and measured the rest. In that run the staging organization's `robot/f1tenth:v1` had the content digest
+`sha256:aa5fc36e5f45c1e56615371b50e201d2622d3e8e7dfd7e1951181a416a95c998`. That `:v1` was not
+made from the file in this repository: publishing `assets/robot/f1tenth` on 2026-10-06 created
+`:v2` with digest `sha256:d19e662d`, after cloud validation passed in 296 seconds. Your own
+upload gets its own digest. Its preview
 (job `job_amigurumi-hut-s6a3st`) showed action 0 driving all four wheels and action 1 driving both
 steering joints, and its random and zero-action checks recorded 51 and 50 finite matching resets,
 respectively. That preview recording verified as 9,544 MCAP messages and included Lichtblick and

@@ -94,7 +94,8 @@ the negative distance to the zone on every step until the robot arrives, so even
 always reaches the zone finishes with a negative total; the reward of 100 for arriving is what
 separates an arrival from a near miss.
 
-Evaluation of the best checkpoint reported `100 of 100 episodes succeeded`, and every episode
+Evaluation of the best checkpoint (job `job_denim-ray-kc4106`, on the policy trained by job
+`job_maize-decision-x6je0y`) reported `100 of 100 episodes succeeded`, and every episode
 ended by reaching the target zone.
 
 Two more trainings in the same run changed only the seed in `train.py`. Seed 7 saved its best
