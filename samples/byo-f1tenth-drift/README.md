@@ -101,7 +101,8 @@ labels pointed at the same checkpoint.
 
 An earlier staging run on 2026-10-05, also with `simulo 0.32.0`, trained its own policy and
 measured the rest. It recorded the asset's content digest as
-`sha256:aa5fc36e5f45c1e56615371b50e201d2622d3e8e7dfd7e1951181a416a95c998`. Its preview showed
+`sha256:aa5fc36e5f45c1e56615371b50e201d2622d3e8e7dfd7e1951181a416a95c998`, shown as
+`content_digest` by `simulo asset inspect robot/f1tenth:v1 --json`. Its preview showed
 action 0 driving all four wheels and action 1 driving both steering joints, and its random and
 zero-action checks recorded 51 and 50 finite matching resets, respectively. That preview
 recording verified as 9,544 MCAP messages and included Lichtblick and Foxglove layout files.

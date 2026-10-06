@@ -84,8 +84,9 @@ An earlier staging run on 2026-10-05, also with `simulo 0.32.0`, trained its own
 measured the rest. Its focused preview confirmed action 0 drove the left wheel and action 1
 drove the right wheel; both wheel sweeps passed. Its preview recording verified as 7,846 MCAP
 messages and included Lichtblick and Foxglove layout files. Its playback completed 3 episodes and
-897 steps with mean reward `318.05 +/- 26.77`, and the verified MCAP contained 7,187 messages,
-including 897 packets on each play-camera video channel.
+897 steps. Mean reward varied between about 267 and 318 across two measured runs (2026-10-06),
+and the verified MCAP contained 7,187 messages, including 897 packets on each
+play-camera video channel.
 
 ## Inspecting results
 

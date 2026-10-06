@@ -93,10 +93,9 @@ only 59 of 100 episodes.
 Five more trainings changed the seed in `train.py` or the GPU tier: seed 42 on Tier 2, seeds 1
 and 2 on Tier 1, and seeds 3 and 4 on Tier 2. The best checkpoint of every one scored 100 of 100.
 
-Playing the best checkpoint (job `job_milky-apex-96sp2y`) completed 3 episodes and 717 steps
-with mean reward 264.84 +/- 23.54. Its recording was verified with 5,747 messages. Playback warned
-that `task.py` had changed since the policy was trained, because the policy came from a copy of
-this file with the same code and different comments.
+Playing the best checkpoint (job `job_milky-apex-96sp2y`) completed 3 episodes and 717 steps.
+Mean reward varied between about 265 and 278 across two measured runs (2026-10-06). Its recording
+was verified with 5,747 messages.
 
 ## Inspecting results
 

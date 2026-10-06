@@ -81,7 +81,12 @@ simulo recordings <job-id>
 ## What to expect
 
 One staging run on 2026-10-06 with `simulo 0.32.0` produced the training and evaluation results
-below. It did not run preview or play.
+below. Preview passed 13 of 13 checks (job `job_parallel-drive-tyt9yk`), and play completed
+3 episodes and 837 steps (job `job_excited-cupola-jt4r5c`), both measured 2026-10-06.
+
+Every job prints `layer numpy==2.4.6 is shadowed by the platform runtime numpy==1.26.0`. The
+platform's numpy wins and Shapely runs normally, so the line is harmless. Preview also logs that
+`TargetZone` is visual-only, which means the zone is a marker and has no physics.
 
 The default training command ran for about 4 minutes (259 seconds) and saved its best checkpoint
 at iteration 350 in `policy_maize-decision-x6je0y`. The best reward was about -166. The reward is

@@ -32,6 +32,9 @@ simulo asset publish assets/robot/byo-urdf-arm --kind robot --name byo-urdf-arm 
 simulo asset inspect robot/byo-urdf-arm:v1
 ```
 
+If `simulo asset inspect robot/byo-urdf-arm:v1` already shows the arm, skip the publish.
+Publishing again creates `:v2`, and the jobs in this sample keep using `:v1`.
+
 The reference has no publisher segment, so it resolves in the organization you are signed in to.
 
 ## Files and APIs
@@ -88,7 +91,7 @@ moves, eight training-loop checks, and three action checks. Action 0 moved `shou
 1 moved `shoulder_lift`, and action 2 moved `elbow`. The runtime reported that it applied the
 task's actuator gains to all joints. Its recording was verified with 10,950 messages.
 
-The default training command ran for 395 seconds on Tier 1. Policy `policy_novel-credits-a1h2j1`
+The default training command ran for about 7 minutes on Tier 1. Policy `policy_novel-credits-a1h2j1`
 saved its best checkpoint at iteration 700 with reward -4.64 and its latest checkpoint at
 iteration 1200.
 
@@ -100,10 +103,9 @@ Three more trainings changed the seed in `train.py`. Seed 1 and seed 3 ran on Ti
 scored 97 of 100. Seed 2 ran on Tier 1 and scored 80 of 100. Every failure in those runs missed
 only the target; the arm settled in every episode.
 
-Playing the best checkpoint (job `job_humorous-bounce-z5axwe`) completed 3 episodes and 897 steps
-with mean reward 12.88 +/- 0.77. Its recording was verified with 7,187 messages. Playback warned
-that `task.py` had changed since the policy was trained, because the policy came from a copy of
-this file with the same code and different comments.
+Playing the best checkpoint (job `job_humorous-bounce-z5axwe`) completed 3 episodes and 897 steps.
+Mean reward varied between about 12 and 17 across two measured runs (2026-10-06). Its recording
+was verified with 7,187 messages.
 
 The settling check passes whenever the arm stops; a policy that does nothing also settles. The
 meaningful result is whether the policy reaches its target as well as settling.
