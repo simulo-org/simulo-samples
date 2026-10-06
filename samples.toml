@@ -27,6 +27,20 @@ runtime_minutes = 5
 published = true
 
 [[samples]]
+slug = "pip-install-shapely"
+title = "Install a PyPI dependency"
+robot = "JetBot"
+task = "Train a JetBot to drive into a target zone, with a reward computed by Shapely installed from PyPI into the job's runtime."
+concepts = ["Runtime.pip_install", "Runtime.env", "third-party rewards", "array-based rewards"]
+assets = ["simulo/robot/jetbot:v1", "simulo/gpu-rl:2026.06"]
+jobs = ["train"]
+gpu = true
+difficulty = "intermediate"
+learning_goal = "Bring your own dependency"
+runtime_minutes = 5
+published = true
+
+[[samples]]
 slug = "byo-f1tenth-drift"
 title = "Bring your own F1TENTH-compatible car"
 robot = "Your own F1TENTH-compatible race car"
