@@ -60,6 +60,10 @@ jobs:
           python-version: "3.12"
       - name: Validate sample structure
         run: python tools/validate_samples.py
+      - name: Install pytest
+        run: python -m pip install pytest==9.1.1
+      - name: Test the structure checker
+        run: python -m pytest tools/test_validate_samples.py -q
 
   discovery:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false

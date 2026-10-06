@@ -75,22 +75,24 @@ simulo recordings <job-id>
 ## What to expect
 
 One staging run on 2026-10-06 with `simulo 0.32.0` produced the preview, training, and
-evaluation results below. Preview passed, with expected warnings that the passive pole was still
-swinging and was not driven.
+evaluation results below. Preview (job `job_eccentric-coulomb-px06m5`) passed, with expected
+warnings that the passive pole was still swinging and was not driven.
 
-Training ran for about 90 seconds. The returned best reward was about 294; both `best` and
-`latest` were saved at iteration 200 in `policy_apricot-gouda-sxhfb2`.
+Training (job `job_apricot-gouda-sxhfb2`) ran for about 90 seconds. The returned best reward was
+about 294; both `best` and `latest` were saved at iteration 200 in `policy_apricot-gouda-sxhfb2`.
 
-The standard evaluation reported `100 of 100 episodes succeeded`, with both the time-limit and
-10-degree checks at 100 of 100. The comparison found no clear difference: `best` and `latest`
-were each 100 of 100, with zero changed outcomes.
+The standard evaluation (job `job_humble-objective-f0jeyy`) reported
+`100 of 100 episodes succeeded`, with both the time-limit and 10-degree checks at 100 of 100. The
+comparison (job `job_glad-couch-8b5a6n`) found no clear difference: `best` and `latest` were each
+100 of 100, with zero changed outcomes.
 
-An earlier staging run on 2026-10-05, also with `simulo 0.32.0`, trained its own policy and
-measured the rest. Its preview recording verified as 11,576 MCAP messages and included Lichtblick
-and Foxglove layout files. Tightening that policy's rule to 5 degrees also produced 100 of 100.
-Its playback completed 3 episodes and 897 steps with mean reward `294.89 +/- 3.44`, and the
-verified MCAP contained 7,187 messages, including 897 packets on each overhead-camera video
-channel.
+An earlier staging run on 2026-10-05, also with `simulo 0.32.0`, trained its own policy
+(job `job_modern-pepato-75dpmx`) and measured the rest. Its preview recording
+(job `job_bouncy-archway-zqv7tb`) verified as 11,576 MCAP messages and included Lichtblick and
+Foxglove layout files. Tightening that policy's rule to 5 degrees (job `job_famous-damper-n59rrs`)
+also produced 100 of 100. Its playback (job `job_cordial-clique-hs0jc2`) completed 3 episodes and
+897 steps with mean reward `294.89 +/- 3.44`, and the verified MCAP contained 7,187 messages,
+including 897 packets on each overhead-camera video channel.
 
 ## Inspecting results
 

@@ -2,10 +2,12 @@
 
 ## What this shows
 
-Learn how a locomotion task is built and trained by teaching a 21-joint humanoid to walk forward
+Learn how a locomotion task is built and trained by teaching a 21-joint humanoid to move forward
 without falling. The focused lesson is a dense walking reward paired with observation
 normalisation: the trainer keeps observations and value estimates on a steady scale as it learns,
-which lets the default training learn a reliable gait.
+which lets the default training keep the robot upright while it moves forward. The success rule
+does not check for stepping, so the learned motion can look like a shuffle or a drag rather than
+a walk.
 
 ## Prerequisites
 
@@ -72,7 +74,8 @@ simulo run samples/humanoid/eval.py --policy <policy-id>:best
 ```
 
 An episode succeeds when the robot stays upright to the 15-second time limit and ends at least
-1 m forward of its start.
+1 m forward of its start. The rule does not check how the legs move, so a policy that shuffles or
+drags itself forward also passes. Play the policy and watch the recording to see the motion.
 
 ### Play
 
@@ -91,18 +94,21 @@ simulo recordings <job-id>
 ## What to expect
 
 Staging runs on 2026-10-06 with `simulo 0.32.0` on a Tier 2 GPU produced the training and
-evaluation results below. These are measured runs, not a guarantee that every run learns to walk.
+evaluation results below. These are measured runs, not a guarantee that every run stays upright
+and moves forward.
 
 The default training command ran for 17.2 minutes (`job_fortunate-fermata-new9vp`) and saved its
 best checkpoint at iteration 2,050 of 2,500.
 
-Evaluation of `best` reported `99 of 100 episodes succeeded` (`job_deft-journal-scvjjx`). One
-robot fell at 14.67 seconds, and all 100 moved at least 1 m forward. `latest` scored 100 of 100
-(`job_lavender-mile-7pbwme`). The commands above evaluate `best`, the checkpoint with the
-highest training reward.
+Evaluation of `best` reported `99 of 100 episodes succeeded` (`job_deft-journal-scvjjx`).
+`latest` scored 100 of 100 (`job_lavender-mile-7pbwme`). The commands above evaluate `best`, the
+checkpoint with the highest training reward.
 
-Three more trainings with seeds 1, 2, and 3 also learned to walk. Their best checkpoints scored
+Three more trainings with seeds 1, 2, and 3 also passed the rule. Their best checkpoints scored
 96, 100, and 100 of 100.
+
+These scores show that the robot stays upright and moves forward. They do not show that it steps.
+In playback the motion can look like a shuffle or a drag rather than a walk.
 
 Preview and play ran on staging on 2026-10-06 with `simulo 0.32.0`.
 

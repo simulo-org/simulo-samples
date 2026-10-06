@@ -89,28 +89,29 @@ simulo recordings <job-id>
 
 One staging run on 2026-10-06 with `simulo 0.32.0` produced the preview, training, and
 evaluation results below. It used the existing catalog asset `robot/f1tenth:v1` without
-republishing it. Preview passed all checks.
+republishing it. Preview (job `job_accepting-wax-eq2kr5`) passed all checks.
 
-Training ran for about 4 minutes. The returned best reward was about 92,330; both `best` and
-`latest` were saved at iteration 500 in `policy_dandelion-plaid-3d5tcq`.
+Training (job `job_dandelion-plaid-3d5tcq`) ran for about 4 minutes. The returned best reward was
+about 92,330; both `best` and `latest` were saved at iteration 500 in
+`policy_dandelion-plaid-3d5tcq`.
 
-Evaluation reported 92 of 100 successes: 92 stayed on track for 5 seconds, 97 were moving at
-least `1 m/s` at the end, and 100 moved counter-clockwise. The comparison found no clear
-difference: `best` and `latest` each scored 92 of 100, with zero changed outcomes, because both
-labels pointed at the same checkpoint.
+Evaluation (job `job_long-exit-7vctaf`) reported 92 of 100 successes: 92 stayed on track for
+5 seconds, 97 were moving at least `1 m/s` at the end, and 100 moved counter-clockwise. The
+comparison (job `job_versatile-swatch-4242mz`) found no clear difference: `best` and `latest` each
+scored 92 of 100, with zero changed outcomes, because both labels pointed at the same checkpoint.
 
-An earlier staging run on 2026-10-05, also with `simulo 0.32.0`, trained its own policy and
-measured the rest. It recorded the asset's content digest as
-`sha256:aa5fc36e5f45c1e56615371b50e201d2622d3e8e7dfd7e1951181a416a95c998`, shown as
-`content_digest` by `simulo asset inspect robot/f1tenth:v1 --json`. Its preview showed
-action 0 driving all four wheels and action 1 driving both steering joints, and its random and
-zero-action checks recorded 51 and 50 finite matching resets, respectively. That preview
-recording verified as 9,544 MCAP messages and included Lichtblick and Foxglove layout files.
-Its playback completed 1 episode and 300 steps with mean reward `88869.75 +/- 0.00`. Its verified
-MCAP had 2,408 messages across 15 populated topics, including policy observations and actions,
-rewards, robot commands, terminations, transforms, and 300 packets on each overhead-camera video
-channel. Unlike the preview retrieval, the play retrieval returned no Lichtblick or Foxglove
-layout sidecars.
+An earlier staging run on 2026-10-05, also with `simulo 0.32.0`, trained its own policy
+(job `job_horizontal-beam-kmsgm3`) and measured the rest. It recorded the asset's content digest
+as `sha256:aa5fc36e5f45c1e56615371b50e201d2622d3e8e7dfd7e1951181a416a95c998`, shown as
+`content_digest` by `simulo asset inspect robot/f1tenth:v1 --json`. Its preview
+(job `job_amigurumi-hut-s6a3st`) showed action 0 driving all four wheels and action 1 driving both
+steering joints, and its random and zero-action checks recorded 51 and 50 finite matching resets,
+respectively. That preview recording verified as 9,544 MCAP messages and included Lichtblick and
+Foxglove layout files. Its playback (job `job_unsolvable-vivace-65jv9b`) completed 1 episode and
+300 steps with mean reward `88869.75 +/- 0.00`. Its verified MCAP had 2,408 messages across 15
+populated topics, including policy observations and actions, rewards, robot commands,
+terminations, transforms, and 300 packets on each overhead-camera video channel. Unlike the
+preview retrieval, the play retrieval returned no Lichtblick or Foxglove layout sidecars.
 
 ## Inspecting results
 

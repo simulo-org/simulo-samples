@@ -70,23 +70,27 @@ simulo recordings <job-id>
 ## What to expect
 
 One staging run on 2026-10-06 with `simulo 0.32.0` produced the preview, training, and
-evaluation results below. Preview passed all checks.
+evaluation results below. Preview (job `job_convex-phase-7c2hv8`) passed all checks.
 
-The default training command created 16 environments, matching the evaluation run's capacity,
-and ran for about 4 minutes. The returned best reward was about 335; both `best` and `latest`
-were saved at iteration 700 in `policy_clever-glacier-9nz091`.
+The default training command (job `job_clever-glacier-9nz091`) created 16 environments, matching
+the evaluation run's capacity, and ran for about 4 minutes. The returned best reward was about
+335; both `best` and `latest` were saved at iteration 700 in `policy_clever-glacier-9nz091`.
 
-Evaluation at the training spacing reported `100 of 100 episodes succeeded`, with all episodes
-moving at least `0.1 m/s` in the commanded direction. The comparison found no clear difference:
-`best` and `latest` were each 100 of 100, with zero changed outcomes.
+Evaluation at the training spacing (job `job_closed-resolution-4bwe8n`) reported
+`100 of 100 episodes succeeded`, with all episodes moving at least `0.1 m/s` in the commanded
+direction. The comparison (job `job_favorite-gallery-5w2m7a`) found no clear difference: `best`
+and `latest` were each 100 of 100, with zero changed outcomes.
 
-An earlier staging run on 2026-10-05, also with `simulo 0.32.0`, trained its own policy and
-measured the rest. Its focused preview confirmed action 0 drove the left wheel and action 1
-drove the right wheel; both wheel sweeps passed. Its preview recording verified as 7,846 MCAP
-messages and included Lichtblick and Foxglove layout files. Its playback completed 3 episodes and
-897 steps. Mean reward varied between about 267 and 318 across two measured runs (2026-10-06),
-and the verified MCAP contained 7,187 messages, including 897 packets on each
-play-camera video channel.
+A second run of the default training command on 2026-10-06 (job `job_district-lintel-ghnqfs`)
+saved the same best reward at the same iteration. Playing its best checkpoint
+(job `job_mighty-stager-6kb9r3`) completed 3 episodes and 897 steps with mean reward
+`267.20 +/- 27.43`. Its recording was verified with 7,187 messages.
+
+An earlier staging run on 2026-10-05, also with `simulo 0.32.0`, trained its own policy
+(job `job_eminent-commit-26xr5e`). Its focused preview (job `job_nippy-command-czp2bg`)
+confirmed action 0 drove the left wheel and action 1 drove the right wheel; both wheel sweeps
+passed. Its full preview recording (job `job_sapphire-texture-tgrvnp`) verified as 7,846 MCAP
+messages and included Lichtblick and Foxglove layout files.
 
 ## Inspecting results
 

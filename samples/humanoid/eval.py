@@ -1,4 +1,4 @@
-"""Evaluate a Humanoid policy for upright forward walking."""
+"""Evaluate whether a Humanoid policy stays upright and moves forward."""
 
 from __future__ import annotations
 

@@ -93,9 +93,10 @@ only 59 of 100 episodes.
 Five more trainings changed the seed in `train.py` or the GPU tier: seed 42 on Tier 2, seeds 1
 and 2 on Tier 1, and seeds 3 and 4 on Tier 2. The best checkpoint of every one scored 100 of 100.
 
-Playing the best checkpoint (job `job_milky-apex-96sp2y`) completed 3 episodes and 717 steps.
-Mean reward varied between about 265 and 278 across two measured runs (2026-10-06). Its recording
-was verified with 5,747 messages.
+A second run of the default training command on 2026-10-06 (job `job_dynamic-upstream-43b36k`)
+saved its best and latest checkpoints at the same iterations. Playing its best checkpoint
+(job `job_resilient-log-7me1wc`) completed 3 episodes and 717 steps with mean reward
+`278.04 +/- 1.86`. Its recording was verified with 5,747 messages.
 
 ## Inspecting results
 
