@@ -41,6 +41,20 @@ runtime_minutes = 13
 published = true
 
 [[samples]]
+slug = "humanoid"
+title = "Humanoid"
+robot = "Bipedal humanoid"
+task = "Train a 21-joint humanoid to walk forward without falling."
+concepts = ["Locomotion", "body-frame observations", "observation normalisation", "termination versus truncation"]
+assets = ["simulo/robot/humanoid:v1"]
+jobs = ["train_humanoid"]
+gpu = true
+difficulty = "intermediate"
+learning_goal = "Train a policy"
+runtime_minutes = 18
+published = true
+
+[[samples]]
 slug = "pip-install-shapely"
 title = "Install a PyPI dependency"
 robot = "JetBot"

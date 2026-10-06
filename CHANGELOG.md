@@ -13,7 +13,7 @@ than an interface: there is no API here whose compatibility a semantic version c
 - Update Humanoid so it walks.
 - Clamp actions before they reach each task.
 - Document the preview, train, evaluate, and play lifecycle.
-- Withdraw Humanoid while its default training is retuned to reliably learn to walk.
+- Bring back Humanoid. It now walks reliably, using normalised observations.
 - Bring back Franka reach. It trains longer by default so it reaches the goal reliably, and
   the arm now observes its own target.
 - Bring back Bring your own URDF. Each action now names the angle a joint should hold, and the
