@@ -19,6 +19,14 @@ readers can find the same information in every sample.
 
 ## Run it
 
+### Preview
+
+### Train
+
+### Evaluate
+
+### Play
+
 ## What to expect
 
 ## Inspecting results

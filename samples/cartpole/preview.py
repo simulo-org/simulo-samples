@@ -1,19 +1,4 @@
-"""Cartpole: preview the robot inside the task before you train.
-
-This file holds a preview job for the task in ``task.py``. A preview checks the
-cartpole in this task the way training will run it: it lets the robot settle, sweeps
-each driven joint, runs random actions through the real training loop, and checks
-observations, rewards, episodes and resets. It prints a report and saves a recording.
-A preview makes no policy.
-
-Run it
-------
-Sign in once with ``simulo login``, then::
-
-    simulo run samples/cartpole/preview.py
-
-Run only some checks with ``--checks settle,joint-sweep``.
-"""
+"""Preview the Cartpole task and its action mapping before training."""
 
 import simulo
 

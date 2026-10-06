@@ -1,88 +1,7 @@
-"""Bring your own robot: the F1TENTH drift task that ``train.py`` trains.
+"""Define a drifting task for a published F1TENTH-compatible race car.
 
-Like ``byo-urdf-arm``, this sample consumes an asset published to **your own
-organization's catalog**, never the Simulo catalog: ``robot/f1tenth:v1``, a 4WD,
-2-wheel-steer race car built from ``assets/robot/f1tenth/f1tenth.usd`` at the root of
-this repository. The reference carries no publisher segment, so it resolves against the
-organization you are signed in as. Publish the asset before you run this sample;
-``README.md`` next to this file has the command. A ``completed`` result from ``train``
-is proof the platform accepted your upload, validated it in the cloud, mounted the
-version you published, and trained a real drifting policy on it — not a scripted sweep,
-not a built-in.
-
-This file holds the application, the task, and the training body, ``_train``.
-``train.py`` holds the one job you submit and calls ``_train``. It builds the same shape
-every training sample here uses: a module-level ``simulo.Task``, and
-``simulo.LearningEnv`` and ``simulo.RLTrainer`` inside a ``@app.job(type="train")``.
-Simulo saves the policy's ``best`` and ``latest`` checkpoints automatically. This file
-declares no job, so ``simulo run`` refuses it. Submit ``train.py`` instead.
-
-Ported task, from WheeledLab (an external open-source project)
-----------------------------------------------------------------
-The task, track geometry, action mapping, and reward shape are ported from WheeledLab's
-own drift task (``UWRobotLearning/WheeledLab``, BSD-3-Clause, University of Washington —
-see ``README.md`` for the full attribution). Six joints, each resolved on its exact
-name: steering ``rotator_left`` / ``rotator_right``; wheels ``wheel_front_left`` /
-``wheel_front_right`` / ``wheel_back_left`` / ``wheel_back_right``.
-
-What this sample shows
------------------------
-* An asset reference with no publisher segment, ``robot/f1tenth:v1``, resolving against
-  your own organization rather than the Simulo catalog.
-* Observation (14 values): root position (3, world) + root orientation as Euler XYZ (3)
-  + root linear velocity (3, world) + root angular velocity (3, world) + last action (2).
-  No sensor observations at all — the published asset carries no lidar or other sensors,
-  and upstream's own task never reads any either.
-* Action (2 values): ``[throttle, steer]``, both in ``[-1, 1]``. A single
-  steering-angle-derived turn radius drives four independently scaled wheel velocity
-  targets (real Ackermann-esque turn-radius geometry), while both steering joints share
-  one position target, ``tan(steer_angle)`` — upstream's own simplified-4WD quirk,
-  reproduced here rather than corrected into pure Ackermann geometry. See
-  ``_compute_car_targets``.
-* A single weighted-sum reward (``_compute_rewards``), the same multi-term pattern the
-  other training samples here use: side-slip (rewarded only inside a real-drift band),
-  speed-tracking, track progress, corner "turn energy", a cross-track penalty against the
-  racing line, a counter-steer bonus, and an out-of-bounds termination penalty.
-* Termination when the car leaves the drivable corridor (radial/perpendicular distance
-  from the racing line outside a fixed inner/outer bound); otherwise every episode
-  truncates at the 5 s time limit.
-
-This port makes a few deliberate simplifications against the upstream task, stated here
-rather than hidden:
-
-* Upstream ramps three reward weights over the course of training: the side-slip reward
-  grows, a delayed counter-steer bonus phases in once basic driving is learned, and the
-  out-of-bounds penalty grows more severe. Its clock is a global simulation-step count
-  divided by the episode length, which a Simulo ``Task`` can keep for itself — the
-  mechanism is portable, not missing. This port leaves it out on evidence instead: at
-  this trainer's fixed rollout length, the default training budget covers too few of
-  upstream's "episodes" for a faithful schedule to fire more than once, and a ramp
-  compressed to fit was measured to hold the lap less reliably and to end in a diverged
-  update more often. All three weights are fixed at upstream's starting (pre-ramp)
-  values instead. The concrete effect: the counter-steer bonus (``rew_scale_tlgr``)
-  starts at ``0.0`` upstream, so it is computed every step but never contributes reward
-  here.
-* Upstream sets per-joint actuator limits (steering velocity/effort, wheel
-  effort/velocity). The public robot-authoring surface has no value type for that yet, so
-  this port relies on the published asset's own joint-drive defaults instead.
-* Upstream randomizes tire friction, actuator damping, and body mass every episode, per
-  environment, on top of spawn pose and a periodic push. ``simulo.Robot(...)`` does
-  accept ``mass_scale`` and ``actuator_gains`` — but only as constructor arguments,
-  applied once, uniformly, to every parallel environment when the scene is built, with
-  no way to re-roll them per episode the way a spawn pose is re-rolled. Tire friction has
-  no setter at all on the public robot-authoring surface — only joint state/targets and
-  root pose/velocity — so this port randomizes only the spawn pose (position and
-  heading, at reset) and a periodic small velocity push, folding upstream's two-tier
-  push schedule into one.
-* Upstream also requests a smaller actor/critic network (``[64, 64]``, ELU activation).
-  The trainer's own network architecture is fixed (``[256, 128, 64]``, also ELU), so this
-  port trains with that fixed shape instead.
-
-The task can also add a standalone, world-frame, top-down camera (see ``build``),
-added directly to the scene rather than attached to any robot body: a link name on a car
-you bring yourself is never known in advance, so this avoids guessing one a camera would
-silently fail to attach to. Training leaves it off. Playing a policy back to watch or
-record it arrives in a later Simulo release.
+The task uses the organization's `robot/f1tenth:v1` asset and maps throttle
+and steering actions to four driven wheels and two steering joints.
 """
 
 from __future__ import annotations
@@ -93,29 +12,26 @@ from typing import Any, Tuple
 
 import simulo
 
-# Your F1TENTH-compatible race car, published to your own organization's catalog. The
-# reference carries no publisher segment, so it resolves against the organization you
-# are signed in as rather than against the Simulo catalog.
+# Your F1TENTH-compatible race car, published to your OWN org catalog. No publisher
+# segment => resolved against the caller's own org, not "simulo/...".
 f1tenth = simulo.Asset.from_registry("robot/f1tenth:v1")
 
 # Advanced: pick a different Simulo runtime with
-# App("name", runtime=simulo.Runtime.from_registry("simulo/gpu-rl:2026.06"));
-# see https://docs.simulo.ai/concepts/runtimes/.
+# App("name", runtime=simulo.Runtime.from_registry("simulo/gpu-rl:2026.06")); see the
+# Runtimes docs.
 app = simulo.App("byo-f1tenth-drift")
 
-# The one heavy import, deferred: on your machine this block records the import
-# instead of resolving it; in the cloud it is a plain import.
+# The ONE module-level heavy import - deferred under the runtime guard so discovery
+# records it as a remote import instead of resolving it.
 with app.runtime.imports():
-    import torch  # noqa: F401  (resolved only when the job runs in the cloud)
+    import torch  # noqa: F401  (resolved only in execution mode)
 
 
 def _quat_rotate(quat: torch.Tensor, vec: torch.Tensor) -> torch.Tensor:
-    """Rotate a per-env vector by a per-env quaternion (both wxyz, shape (num_envs, *)).
+    """Rotate a per-env vector by a per-env quaternion (both wxyz / (num_envs, *)).
 
-    Same helper as ``samples/humanoid/train.py`` (duplicated per this repo's per-sample
-    convention rather than shared) — a plain typed module-level function, recursively
-    compiled by ``torch.jit.script`` when called from an ``@app.runtime.torch_jit``
-    kernel, and callable eagerly too.
+    This plain typed module-level helper is recursively compiled by the decorated
+    reward kernel that calls it and can also be called eagerly.
     """
     w, x, y, z = quat[:, 0], quat[:, 1], quat[:, 2], quat[:, 3]
     vx, vy, vz = vec[:, 0], vec[:, 1], vec[:, 2]
@@ -129,7 +45,7 @@ def _quat_rotate(quat: torch.Tensor, vec: torch.Tensor) -> torch.Tensor:
 
 
 def _quat_rotate_inverse(quat: torch.Tensor, vec: torch.Tensor) -> torch.Tensor:
-    """Rotate ``vec`` by the conjugate of ``quat`` — world frame -> body frame."""
+    """Rotate ``vec`` by the conjugate of ``quat`` - world frame -> body frame."""
     quat_conj = quat.clone()
     quat_conj[:, 1:4] = -quat_conj[:, 1:4]
     return _quat_rotate(quat_conj, vec)
@@ -180,16 +96,17 @@ def _compute_car_targets(
     wheel_radius: float,
     actions: torch.Tensor,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
-    """Map a 2D ``[throttle, steer]`` action to per-joint targets — upstream's ``RCCar4WDAction``.
+    """Map a 2D ``[throttle, steer]`` action to per-joint targets - upstream's ``RCCar4WDAction``.
 
     Returns ``(steer_position_target, wheel_velocity_targets)``: ``steer_position_target``
-    is ``tan(steer_angle)`` (shape ``(num_envs,)`` — BOTH steering joints get this same
+    is ``tan(steer_angle)`` (shape ``(num_envs,)`` - BOTH steering joints get this same
     value, upstream's simplified-4WD quirk, not pure Ackermann geometry) and
     ``wheel_velocity_targets`` is ``(num_envs, 4)`` in ``[front_left, front_right,
     back_left, back_right]`` order, each independently scaled by the turn-radius geometry.
 
-    ``@app.runtime.torch_jit`` is a marker on your machine and ``torch.jit.script`` in
-    the cloud, so this can live at module level and its body never runs at submit.
+    ``@app.runtime.torch_jit`` is a no-op marker at submit and real ``torch.jit.script`` on
+    execution, so this lives at module level and is torch-free to *define* during
+    discovery (its body never runs at submit).
     """
     throttle = torch.clamp(actions[:, 0], -1.0, 1.0)
     steer = torch.clamp(actions[:, 1], -1.0, 1.0)
@@ -246,16 +163,17 @@ def _compute_rewards(
     steer_pos_mean: torch.Tensor,
     reset_terminated: torch.Tensor,
 ) -> torch.Tensor:
-    """JIT-compiled multi-term drift reward kernel — the same multi-term weighted-sum
-    pattern the other training samples here use, ported from WheeledLab's drift task.
-    See the module docstring for what this port simplifies against upstream.
+    """JIT-compiled multi-term drift reward kernel - the ``humanoid``-style weighted-sum
+    pattern, ported from WheeledLab's drift task and checked term-by-term against its
+    source. This port uses fixed weights in place of a training-iteration curriculum.
 
-    ``@app.runtime.torch_jit`` is a marker on your machine and ``torch.jit.script`` in
-    the cloud, so this can live at module level and its body never runs at submit.
-    ``_quat_rotate_inverse`` and ``_track_measure`` are compiled transitively.
+    ``@app.runtime.torch_jit`` is a no-op marker at submit and real ``torch.jit.script`` on
+    execution, so this lives at module level and is torch-free to *define* during
+    discovery (its body never runs at submit). ``_quat_rotate_inverse`` /
+    ``_track_measure`` are compiled transitively.
     """
     # side_slip: reward the (clamped) body-frame slip angle, but only inside a genuine
-    # "drifting" band — not stationary/crawling, not an unstable spin, not just barely
+    # "drifting" band - not stationary/crawling, not an unstable spin, not just barely
     # turning.
     body_vel = _quat_rotate_inverse(root_quat, root_lin_vel)
     forward_speed = body_vel[:, 0]
@@ -271,7 +189,7 @@ def _compute_rewards(
 
     # vel: penalize deviation of ground speed (world-frame xy velocity norm) from the
     # target cruise speed. Upstream's own default offset (-max_speed**2) is active at
-    # this call site — its override is commented out in the source, not omitted — so
+    # this call site - its override is commented out in the source, not omitted - so
     # this term bottoms out AT -max_speed**2 exactly at the target speed (its minimum
     # value over all speeds, not zero) and rises from there as speed deviates. Combined with
     # this term's own negative weight, that makes hitting the target speed a positive
@@ -279,20 +197,12 @@ def _compute_rewards(
     ground_speed = torch.sqrt(root_lin_vel[:, 0] ** 2 + root_lin_vel[:, 1] ** 2)
     vel_term = (ground_speed - max_speed) ** 2 - max_speed**2
 
-    # progress: the angular rate of the car's POSITION about the track centre (rad/s),
-    # i.e. real motion around the loop. Upstream's own progress term uses the root yaw
-    # rate as a cheap proxy for this; ported faithfully, that proxy paid the car for
-    # spinning inside the corridor instead of lapping it. In an early comparison of the
-    # two formulations (a design measurement for this term's shape, from before this
-    # file's KL-guard fix and not comparable to the training-quality figures in
-    # README.md), every surviving episode under the yaw-rate proxy swept 1,700-2,250
-    # degrees of heading in 5s while its position covered under one lap, and only a
-    # minority of survivors completed a lap; under this position-based term, nearly all
-    # did. The two terms are NOT equal pointwise (the yaw-rate proxy is 3.75 rad/s in
-    # the turns and 0 on the straights, this term is 1.87 and 3.74 respectively) but
-    # both integrate to exactly 2*pi per lap, so their time-mean over a lap matches
-    # (2.289 vs 2.291 rad/s) — the weight and the reward scale are unchanged for a car
-    # that actually laps; only spinning in place stops paying.
+    # progress: the angular rate of the car's POSITION about the track centre
+    # (rad/s), i.e. real motion around the loop. Upstream's ``track_progress_rate``
+    # uses the root yaw rate as a cheap proxy for this; ported faithfully, that
+    # proxy can pay the car for spinning inside the corridor instead of lapping it.
+    # Using position around the track rewards actual progress while keeping the same
+    # scale over a complete lap.
     progress = (pos_x * root_lin_vel[:, 1] - pos_y * root_lin_vel[:, 0]) / (
         pos_x * pos_x + pos_y * pos_y + 1.0e-3
     )
@@ -309,9 +219,9 @@ def _compute_rewards(
     cross_track = torch.abs(track_measure - line_radius) - 1.0
 
     # tlgr ("turn-left-go-right"): a counter-steer bonus. Upstream ramps this in only
-    # after basic driving is learned (base/starting weight 0.0) — see the module
-    # docstring's curriculum gap. Computed unconditionally; contributes nothing while
-    # its weight is 0.
+    # after basic driving is learned (base/starting weight 0.0) - see the module
+    # docstring's curriculum gap for why this port keeps the base weight. Computed
+    # unconditionally; contributes nothing while its weight is 0.
     tlgr_raw = steer_pos_mean * torch.clamp(root_ang_vel_z, -1.0, 1.0) * -1.0
     tlgr = torch.clamp(tlgr_raw, min=0.0)
 
@@ -339,9 +249,10 @@ class F1TenthDriftTask(simulo.Task):
     ``[throttle, steer]``. See the module docstring for the full reward/termination/
     domain-randomization shape and the documented gaps against upstream.
 
-    ``with_camera=True`` additionally adds a standalone, world-frame, top-down camera
-    framing the whole track, for playing a policy back once Simulo supports that.
-    Training keeps the default ``with_camera=False`` — no camera prim, no render cost.
+    ``with_camera=True`` adds a standalone,
+    world-frame, top-down camera framing the whole track, so the MCAP flight recording
+    carries a playable h264 video. Training keeps the default ``with_camera=False`` - no
+    camera prim, no render cost.
     """
 
     observation_dim = 14
@@ -363,13 +274,13 @@ class F1TenthDriftTask(simulo.Task):
     corner_out_radius = 2.0  # outer bound of the drivable corridor
 
     # -- Reward shape -----------------------------------------------------------------
-    slip_threshold = 0.55  # [rad] — above this, treat it as an unstable spin, not a drift
-    slip_engage_threshold = 0.25  # [rad] — below this, not really drifting yet
+    slip_threshold = 0.55  # [rad] - above this, treat it as an unstable spin, not a drift
+    slip_engage_threshold = 0.25  # [rad] - below this, not really drifting yet
     min_forward_speed_for_slip = 1.0  # [m/s]
 
-    # Fixed at upstream's BASE (pre-curriculum) weights — see the module docstring's
-    # curriculum gap. ``rew_scale_tlgr`` starting at 0.0 means that term never
-    # contributes without the ramp this port cannot implement.
+    # Fixed at upstream's BASE (pre-curriculum) weights - see the module docstring's
+    # curriculum gap for why the ramp is deliberately left out. ``rew_scale_tlgr``
+    # at 0.0 means that term never contributes.
     rew_scale_side_slip = 10.0
     rew_scale_vel = -5.0
     rew_scale_progress = 40.0
@@ -378,10 +289,10 @@ class F1TenthDriftTask(simulo.Task):
     rew_scale_tlgr = 0.0
     rew_scale_out_of_bounds = -5000.0
 
-    # -- Domain randomization (spawn pose + periodic push only — see module docstring) -
+    # -- Domain randomization (spawn pose + periodic push only - see module docstring) -
     spawn_pos_noise = 0.5  # [m]
     spawn_yaw_noise = 1.0  # [rad]
-    spawn_height = 0.08  # [m] — wheel_radius plus a small clearance to avoid penetration
+    spawn_height = 0.08  # [m] - wheel_radius plus a small clearance to avoid penetration
 
     # A single fixed ~0.4s interval, a simplification of upstream's two-tier push
     # schedule (0.1-0.4s / 0.8-1.2s) into one; the yaw range below is upstream's LARGER
@@ -391,9 +302,8 @@ class F1TenthDriftTask(simulo.Task):
     push_linear_y = 0.03  # [m/s]
     push_angular_z = 0.6  # [rad/s]
 
-    # Set by the training base class when the job runs. Declared here only so a
-    # type checker sees the names the methods read; the annotations are strings
-    # and never shadow the inherited values.
+    # Framework-injected at runtime by ``simulo.core.Task`` / ``LearningEnv`` (declared
+    # here only so the type checker sees the names the methods read; PEP 563 strings).
     device: str
     num_envs: int
     max_episode_length: int
@@ -411,22 +321,23 @@ class F1TenthDriftTask(simulo.Task):
             at="/World",
             per_environment=False,
         )
-        # Your published race car, on a floating base: free to move rather than
-        # bolted down.
+        # Your published F1TENTH-compatible car - floating base (a mobile vehicle, not
+        # bolted down).
         self.robot = simulo.Robot(asset=f1tenth, initial_pose=simulo.Pose.identity())
         scene.add(self.robot, at="/World/Robot")
 
-        # Playback-only: a standalone world-frame camera (not attached to any robot
-        # body — see the module docstring's note on why) — a fixed top-down shot,
+        # Single-environment use: a STANDALONE world-frame camera (not attached to any robot
+        # body - see the module docstring's note on why) - a fixed top-down shot,
         # high enough to keep the whole stadium loop in frame regardless of where the
-        # car is on the track. Not attached to the robot, so no ordering concern
-        # applies; added directly to the scene like ``Terrain`` / ``Light`` above.
+        # car is on the track. Not attached to the robot, so no ``add_sensor`` /
+        # ordering concern applies; added directly to the scene like ``Terrain`` /
+        # ``Light`` above.
         if self._with_camera:
             camera = simulo.Camera(
                 width=640,
                 height=480,
                 data_types=["rgb"],
-                update_period=1.0 / 30.0,  # 30 Hz — matches RecordConfig.video_fps
+                update_period=1.0 / 30.0,  # 30 Hz - matches RecordConfig.video_fps
                 offset=simulo.SensorOffset.look_at(pos=(0.0, 0.0, 5.0), target=(0.0, 0.0, 0.0)),
                 spawn=simulo.CameraSpawnConfig(
                     focal_length=12.0,  # wide enough to keep the whole loop in frame from 5m up
@@ -435,9 +346,10 @@ class F1TenthDriftTask(simulo.Task):
                     clipping_range=(0.1, 1.0e5),
                 ),
             )
-            # The last segment of the scene path becomes the sensor's name (and
-            # therefore its recording topic, "overhead_cam") — keep this snake_case
-            # to match the topic named in this sample's README.
+            # The scene-path segment's last component becomes the sensor's name (and
+            # therefore its recording topic, "overhead_cam") - see Scene._add_sensor's
+            # name-derivation rule; keep this snake_case to match the topic named in
+            # this app's docstrings/README.
             scene.add(camera, at="/World/overhead_cam", per_environment=False)
 
     def on_start(self, env: simulo.LearningEnv) -> None:
@@ -457,12 +369,17 @@ class F1TenthDriftTask(simulo.Task):
         ).float()
 
         # Per-env world-space grid offset (`env_spacing=7.0` in `_make_env`, so each
-        # environment's copy of the stadium track sits on its own grid cell) —
-        # captured once here. Every read of `robot.state.pose` below is world frame;
-        # the track geometry (`_track_measure`, `_randomize_spawn`) is written in one
-        # environment's own local frame, centered on that environment's grid cell, so
-        # every position read subtracts this back out and every position write adds
-        # it back in.
+        # env's copy of the stadium track sits on its own grid cell) - captured once
+        # here. Every read of
+        # `robot.state.pose` below is WORLD frame; the track geometry (`_track_measure`,
+        # `_randomize_spawn`) is written in one env's own LOCAL frame, centered on that
+        # env's grid cell, so every position read subtracts this back out and every
+        # position write adds it back in. Without this, every env's car would be
+        # spawned at the SAME absolute world coordinates (all 256 stacked on one
+        # point), not spread across the grid `env_spacing` sets up - training itself
+        # would still be correct (every env's reward/termination math already agreed
+        # with itself, just in the wrong frame), but the parallel-training visual this
+        # sample exists to show would not be.
         origins = env.scene.env_origins
         if origins is not None:
             self._env_origin_xy = origins[:, :2].clone()
@@ -470,9 +387,9 @@ class F1TenthDriftTask(simulo.Task):
             self._env_origin_xy = torch.zeros((self.num_envs, 2), device=self.device)
 
     def _local_xy(self, pose: torch.Tensor) -> torch.Tensor:
-        """This environment's own track-local XY — world XY minus its grid origin.
+        """This env's own track-local XY - world XY minus this env's grid origin.
 
-        Environment grids only offset X/Y, never Z, so Z stays raw world."""
+        Env grids only offset X/Y, never Z, so Z stays raw world."""
         return pose[:, 0:2] - self._env_origin_xy
 
     def get_observations(self) -> torch.Tensor:
@@ -518,7 +435,7 @@ class F1TenthDriftTask(simulo.Task):
             self.reset_terminated,
         )
 
-    def get_dones(self) -> tuple[dict[str, torch.Tensor], torch.Tensor]:
+    def get_dones(self) -> Tuple[dict[str, torch.Tensor], torch.Tensor]:
         pose = self.robot.state.pose
         local_xy = self._local_xy(pose)
         measure = _track_measure(local_xy[:, 0], local_xy[:, 1], self.straight)
@@ -539,16 +456,15 @@ class F1TenthDriftTask(simulo.Task):
             self.wheel_radius,
             actions,
         )
-        # Both steering joints share the SAME position target — upstream's simplified
+        # Both steering joints share the SAME position target - upstream's simplified
         # 4WD quirk (see _compute_car_targets' docstring).
         steer_targets = steer_target.view(-1, 1).expand(-1, 2).contiguous()
         self.robot.set_joint_position_target(steer_targets, joint_ids=self._steer_joint_ids)
         self.robot.set_joint_velocity_target(wheel_targets, joint_ids=self._wheel_joint_ids)
 
     def on_post_physics_step(self) -> None:
-        """Apply a small periodic random push — the piece of upstream's domain
-        randomization the public robot-authoring surface can actually do (see the
-        module docstring)."""
+        """Apply a small periodic random push - the domain-randomization piece the SDK
+        can actually do (see the module docstring's domain-randomization gap)."""
         self._push_counter -= 1.0
         due = self._push_counter <= 0.0
         if bool(torch.any(due).item()):
@@ -576,10 +492,11 @@ class F1TenthDriftTask(simulo.Task):
         ).float()
 
     def _randomize_spawn(self, env_ids: torch.Tensor) -> None:
-        """Sample a random point along the stadium track and teleport the car there,
-        with zero velocity — the piece of upstream's domain randomization the public
-        robot-authoring surface can do (spawn position/heading; see the module
-        docstring for what this does NOT cover)."""
+        """Sample a random point along the stadium track (in this env's own LOCAL
+        frame) and teleport the car there in WORLD frame, with zero velocity - the
+        SDK-real half of upstream's domain randomization (spawn position/heading; see
+        the module docstring's domain-randomization gap for what this does NOT
+        cover)."""
         n = len(env_ids)
         straight = self.straight
         line_radius = self.line_radius
@@ -624,9 +541,9 @@ class F1TenthDriftTask(simulo.Task):
         y = y + (torch.rand(n, device=self.device) * 2.0 - 1.0) * self.spawn_pos_noise
         yaw = yaw + (torch.rand(n, device=self.device) * 2.0 - 1.0) * self.spawn_yaw_noise
 
-        # x, y above are this environment's own local track coordinates; shift into
-        # world frame by this environment's grid origin before writing the pose
-        # (`set_root_pose` is world frame).
+        # x, y above are this env's own LOCAL track coordinates; shift into WORLD
+        # frame by this env's grid origin before writing the pose (set_root_pose is
+        # WORLD frame, matching the coordinate conversion used by robot resets.
         origin = self._env_origin_xy[env_ids]
         x = x + origin[:, 0]
         y = y + origin[:, 1]
@@ -644,21 +561,19 @@ class F1TenthDriftTask(simulo.Task):
 
 
 def _make_env(num_envs: int, *, camera: bool = False) -> Any:
-    """Construct the F1TENTH-drift environment.
+    """Construct the shared F1TENTH-drift environment (same sim settings across jobs).
 
     ``env_spacing=7.0``: the stadium track's footprint (bounded by ``corner_out_radius``)
     spans roughly 4m x 5.6m per env, so envs need clearance well past that to avoid
-    neighboring tracks overlapping. ``camera=True`` (playback only) adds the overhead
-    Camera in ``build`` and passes ``enable_cameras=True``: the simulator refuses to
-    spawn Camera sensors unless camera rendering is enabled, and this ``LearningEnv``
-    argument is what wires that through, including headless offscreen rendering.
+    neighboring tracks overlapping. ``camera=True`` (playback only) adds the overhead Camera
+    in ``build`` AND passes ``enable_cameras=True`` - the simulator refuses to spawn
+    Camera sensors unless camera rendering is enabled, and this LearningEnv kwarg is what
+    wires that through, including headless offscreen rendering.
     """
     return simulo.LearningEnv(
         task=F1TenthDriftTask(with_camera=camera),
         num_envs=num_envs,
         device="cuda",
-        dt=1.0 / 120.0,
-        physics_steps_per_action=2,
         env_spacing=7.0,
         headless=True,
         seed=42,
@@ -667,56 +582,21 @@ def _make_env(num_envs: int, *, camera: bool = False) -> Any:
 
 
 def _ppo_overrides() -> dict[str, Any]:
-    """The PPO settings that differ from ``simulo.RLTrainer``'s own defaults.
+    """Return PPO settings adapted from the task's upstream training setup.
 
-    Called from inside the ``train`` job body only, so its one heavy import (skrl's
-    KL-adaptive scheduler, an execution-time-only dependency the trainer itself already
-    carries) never runs at submit: the app stays torch-free to discover and package.
-
-    Upstream trains this task with ``learning_rate=1e-3``, ``schedule="adaptive"``,
-    ``desired_kl=0.01``, ``entropy_coef=0.005``. Four of the settings below exist to
-    give this trainer's PPO the same effective optimizer and to keep it stable, and
-    each closes a measured failure of an earlier version of this sample (256
-    environments x 500 iterations on a local RTX 3090, traced per update). Two of
-    them share the name ``kl_threshold`` and are different knobs; the comment beside
-    them in the dict, and their two bullets here, say how:
-
-    * ``learning_rate_scheduler``: a KL-adaptive rule at upstream's ``desired_kl`` (halve
-      the learning rate at 2x the KL target, raise it 1.5x under half of it). With the
-      learning rate pinned at 1e-3, the policy's own noise climbed monotonically and most
-      runs ended in an all-NaN update; with the scheduler, the noise falls instead.
-      Divergence is still intermittent — see the README's "What to expect" —
-      which is what the automatically saved ``best`` checkpoint is for. The scheduler takes
-      its threshold as a constructor keyword, and this trainer's ``agent_cfg`` cannot
-      carry a nested keyword-arguments section for it, so it is bound with
-      ``functools.partial``.
-    * ``kl_threshold`` (the agent's, not the scheduler's): skrl's early-stop for a
-      single PPO update — a ceiling rather than a target. Each learning epoch stops
-      taking further gradient steps as soon as a mini-batch's approximate KL against
-      the rollout policy exceeds 0.02, twice the scheduler's own target, so one
-      oversized step is not compounded by more steps in the same epoch. The
-      scheduler's own reaction to an oversized update — collapsing the learning rate
-      — comes too late once the policy has already moved that far; this guard
-      measurably cut how often local testing ended in a non-finite update. A run can
-      still turn out poorly, which is what the automatically saved ``best``
-      checkpoint is for.
-    * ``rewards_shaper``: scale the reward the *agent* sees by 0.01. This task's episode
-      return is a few tens of thousands (upstream's own reward weights), which the
-      trainer's value function cannot fit without this scaling — its clipped value loss
-      saturates against returns that large, and the critic never learns. Shaping is
-      applied after the trainer records the raw episode reward, so ``best_reward`` and
-      the recorded reward stay in the task's own units.
-    * ``clip_predicted_values=False``: this task's reward scale defeats the trainer's
-      default value-loss clip the same way; disabling it is the closer match to
-      upstream's own optimizer, and keeps the value loss usably small.
+    The scheduler import stays inside the training path so packaging does not need
+    the training dependency. The scheduler target adjusts the learning rate, while
+    the separate update threshold stops an oversized PPO update. Reward shaping
+    scales values seen by the optimizer without changing recorded task rewards.
     """
+
     from skrl.resources.schedulers.torch import KLAdaptiveLR
 
     return {
         "learning_rate": 1e-3,
         # Two different knobs share the name ``kl_threshold``. The scheduler's is a
         # TARGET: the adaptive learning rate rises or falls to keep each update's
-        # policy shift near 0.01. The agent's is a CEILING: an update stops taking
+        # policy shift near 0.01. The update guard is a CEILING: an update stops taking
         # steps once its shift has already exceeded 0.02. They are deliberately
         # about two to one, so the stop fires only on outliers, not every round.
         "learning_rate_scheduler": functools.partial(KLAdaptiveLR, kl_threshold=0.01),
@@ -730,23 +610,13 @@ def _ppo_overrides() -> dict[str, Any]:
 def _train(num_envs: int = 256, max_iterations: int = 500) -> dict[str, Any]:
     """Train the drift policy with PPO.
 
-    Simulo saves the policy's ``best`` and ``latest`` checkpoints automatically. ``best``
-    is the checkpoint with the highest mean episode reward at any save, so a late
-    divergence never replaces it.
-
     Args:
-        num_envs: Number of parallel environments to simulate. 256 matches upstream's
-            own default for this task.
-        max_iterations: Number of PPO policy-update iterations. Reward on this task can
-            climb for a while and then diverge late in a run — see ``README.md``'s "What
-            to expect" for measured numbers; the KL guard in ``_ppo_overrides`` cuts how
-            often that happens without eliminating it. 500 is kept as the default
-            anyway, because the ``best`` checkpoint keeps the strongest policy the run
-            reached, though an early divergence can still leave a weaker one.
+        num_envs: Number of parallel environments to simulate. 256 matches upstream's own
+            per-env-cfg default for this task.
+        max_iterations: Number of PPO policy-update iterations.
 
     Returns:
-        A JSON-serialisable dict: training ``stats`` and the catalog reference the run
-        trained against.
+        A JSON-serialisable dict with training ``stats`` and the org asset ref.
     """
     env = _make_env(num_envs)
     trainer = simulo.RLTrainer(
@@ -754,18 +624,18 @@ def _train(num_envs: int = 256, max_iterations: int = 500) -> dict[str, Any]:
         algorithm="PPO",
         device="cuda",
         seed=42,
-        # discount_factor (0.99), lambda (0.95), and ratio_clip (0.2) already match
-        # upstream's requested gamma/lam/clip_param at this trainer's own defaults. The
-        # actor/critic network shape (upstream requests [64, 64] hidden dims) is NOT
-        # reachable here — the policy/value networks are a fixed architecture, not an
-        # agent_cfg knob; see the module docstring's network-architecture gap.
+        # Only the keys that differ from RLTrainer's own PPO defaults are listed there;
+        # ``discount_factor`` (0.99), ``lambda`` (0.95), and ``ratio_clip`` (0.2) already
+        # match upstream's requested gamma/lam/clip_param at RLTrainer's own defaults.
+        # The actor/critic network shape (upstream requests [64, 64] hidden dims) is NOT
+        # reachable here - RLTrainer's policy/value networks are a fixed architecture,
+        # not an agent_cfg knob.
         agent_cfg=_ppo_overrides(),
     )
 
-    stats = trainer.train(max_iterations=max_iterations)
-
-    # Close the trainer before the environment so the RL library releases its
-    # resources first.
-    trainer.close()
-    env.close()
-    return {"num_envs": num_envs, "robot_asset": "robot/f1tenth:v1", **stats}
+    try:
+        stats = trainer.train(max_iterations=max_iterations)
+        return {"num_envs": num_envs, "robot_asset": "robot/f1tenth:v1", **stats}
+    finally:
+        trainer.close()
+        env.close()

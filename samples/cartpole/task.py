@@ -1,64 +1,29 @@
-"""Cartpole: the task that ``train.py`` trains.
+"""Define the Cartpole task shared by preview, training, evaluation, and playback.
 
-A cart slides along a rail with a pole hinged on top. The policy learns to keep the
-pole upright by pushing the cart left or right. This is the core Simulo training shape,
-and every other training sample in this repository follows it: a ``simulo.Task``
-describes the problem, ``simulo.LearningEnv`` runs thousands of copies of it in
-parallel on a GPU, and ``simulo.RLTrainer`` trains a policy. The training job saves
-the policy's ``best`` and ``latest`` checkpoints automatically.
-
-This file holds the application and the task. ``train.py`` holds the one job you
-submit, and imports both from here. Keeping the task in its own file lets another job
-file reuse it without copying it.
-
-What this file shows
---------------------
-* A ``simulo.Task`` subclass with the full lifecycle: ``build`` declares the scene,
-  ``on_start`` resolves joint indices, and ``get_observations``, ``get_rewards``,
-  ``get_dones``, ``apply_actions``, and ``reset_idx`` run every step or reset.
-* The robot uses a version-pinned catalog reference
-  (``simulo/robot/cartpole:v1``), so every run resolves the same model version.
-* Observation (4 values): pole angle, pole angular velocity, cart position, cart
-  velocity. Action (1 value): a scaled horizontal force on the cart.
-
-How the file is written, and why
---------------------------------
-``simulo run`` imports ``train.py``, and through it this file, on your machine, where
-no GPU and no ``torch`` are installed, and only the Simulo cloud executes the job body.
-Four habits keep the file importable in both places:
-
-* ``from __future__ import annotations`` turns every annotation into a string, so
-  ``-> torch.Tensor`` never needs ``torch`` at import time.
-* The only heavy import, ``import torch``, sits inside ``with app.runtime.imports():``.
-  On your machine that block records the import; in the cloud it runs for real.
-* The reward kernel is a module-level function under ``@app.runtime.torch_jit``. On
-  your machine the decorator is a marker; in the cloud it is ``torch.jit.script``.
-* The task class is defined at module level. Its method bodies use ``torch`` and the
-  live robot, and none of them run at submit time.
-
-This file declares no job, so ``simulo run`` refuses it. Submit ``train.py`` instead.
+The policy moves a cart left or right to keep its pole upright.
 """
 
 from __future__ import annotations
 
 import math
+from typing import Tuple
 
 import simulo
 
-# The cartpole robot: a version-pinned catalog reference.
-# Declaring it at module level lets `simulo run` record this exact version with
-# the job; the cloud mounts it read-only and the task below uses the same handle.
+# The cartpole robot - a validated, version-pinned global-catalog asset.
+# Capturing it at module level lets submit resolve this exact version before the
+# job runs; execution mounts it and the Task below consumes the same handle.
 cartpole = simulo.Asset.from_registry("simulo/robot/cartpole:v1")
 
 # Advanced: pick a different Simulo runtime with
 # App("name", runtime=simulo.Runtime.from_registry("simulo/gpu-rl:2026.06"));
-# see https://docs.simulo.ai/concepts/runtimes/.
+# see the Runtimes docs.
 app = simulo.App("cartpole")
 
-# The one heavy import, deferred: on your machine this block records the import
-# instead of resolving it; in the cloud it is a plain import.
+# The ONE module-level heavy import - deferred under the runtime guard so discovery
+# records it as a remote import instead of resolving it.
 with app.runtime.imports():
-    import torch  # noqa: F401  (resolved only when the job runs in the cloud)
+    import torch  # noqa: F401  (resolved only in execution mode)
 
 
 @app.runtime.torch_jit
@@ -76,8 +41,9 @@ def _compute_rewards(
 ) -> torch.Tensor:
     """JIT-compiled reward kernel (the classic cartpole balance reward).
 
-    ``@app.runtime.torch_jit`` is a marker on your machine and ``torch.jit.script`` in
-    the cloud, so this can live at module level and its body never runs at submit.
+    ``@app.runtime.torch_jit`` is a no-op marker at submit (no ``torch`` locally) and
+    real ``torch.jit.script`` during execution, so this lives at module level and is
+    still torch-free to *define* during discovery (its body never runs at submit).
     """
     pole_pos = pole_pos.squeeze()
     pole_vel = pole_vel.squeeze()
@@ -103,6 +69,10 @@ class CartpoleTask(simulo.Task):
 
     Observation (4-dim): pole angle, pole angular velocity, cart position, cart
     velocity. Action (1-dim): scaled horizontal force on the cart.
+
+    Defined at module level: ``simulo.Task`` is a torch-free contract stand-in at
+    submit and the real ``simulo.core.Task`` during execution, so the same class
+    authors lean and trains heavy.
     """
 
     observation_dim = 4
@@ -120,9 +90,9 @@ class CartpoleTask(simulo.Task):
     rew_scale_cart_vel = -0.01
     rew_scale_pole_vel = -0.005
 
-    # Set by the training base class when the job runs. Declared here only so a
-    # type checker sees the names the methods read; the annotations are strings
-    # and never shadow the inherited values.
+    # Framework-injected at runtime by ``simulo.core.Task`` / ``LearningEnv``
+    # (declared here only so the type checker sees the names the methods read; the
+    # annotations are PEP 563 strings and never shadow the inherited values).
     device: str
     max_episode_length: int
     episode_length_buf: torch.Tensor
@@ -188,7 +158,7 @@ class CartpoleTask(simulo.Task):
             self.reset_terminated,
         )
 
-    def get_dones(self) -> tuple[dict[str, torch.Tensor], torch.Tensor]:
+    def get_dones(self) -> Tuple[dict[str, torch.Tensor], torch.Tensor]:
         pole_idx = self._pole_dof_idx[0]
         cart_idx = self._cart_dof_idx[0]
         joint_pos = self.robot.state.joint_positions
@@ -199,6 +169,9 @@ class CartpoleTask(simulo.Task):
         return terminated, truncated
 
     def apply_actions(self, actions: torch.Tensor) -> None:
+        # Trained policies can emit values outside the range. Clamp before scaling
+        # so the robot is not over-driven.
+        actions = torch.clamp(actions, -1.0, 1.0)
         self.robot.set_joint_effort_target(
             self.action_scale * actions, joint_ids=self._cart_dof_idx
         )

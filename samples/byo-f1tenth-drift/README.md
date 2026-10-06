@@ -2,321 +2,175 @@
 
 ## What this shows
 
-The other bring-your-own sample, [byo-urdf-arm](../byo-urdf-arm/), publishes a robot
-from a URDF and trains a fixed-base arm to reach. This one publishes a robot from a USD
-package and trains a mobile, 4WD, 2-wheel-steer race car to drift around a
-stadium-shaped track — the same catalog-publishing workflow, on a genuinely dynamic
-driving task with a real failure mode: the car can leave the track.
-
-You send [`assets/robot/f1tenth/`](../../assets/robot/f1tenth/) to your organization's
-catalog with one command, and from then on the car behaves like any other catalog
-robot: version-pinned, resolved when you submit, and mounted read-only while the job
-runs. You will learn 4WD steering (turn-radius geometry driving four independently
-scaled wheel targets from one steering angle), a multi-term weighted-sum reward with a
-real drift band, and how a training job's automatically saved `best` checkpoint keeps the
-strongest policy a run reached even when training diverges late.
-
-The task, reward shape, and race-car asset are ported from **WheeledLab**
-(`UWRobotLearning/WheeledLab`), an external open-source robotics research project — see
-[Assets, licensing, attribution](#assets-licensing-attribution) below. This is the only
-sample in this repository whose task code and asset are derived from a third party
-rather than written for it.
+Learn the complete custom-robot workflow by publishing a floating-base race car to your
+organization's catalog, then previewing, training, evaluating, and recording a drifting policy.
+The focused lesson is keeping a version-pinned custom asset connected to every stage of the
+policy lifecycle.
 
 ## Prerequisites
 
-- Python 3.11 or newer and the Simulo client: `python -m pip install --upgrade simulo`.
-- A Simulo account, signed in once with `simulo login`.
-- A clone of this repository. The commands below run from its root.
-- The car published to your organization's catalog. [Run it](#run-it) does that first;
-  the training job cannot start before it.
-- No GPU on your machine. The job asks for a Tier 1 GPU (T4) in the Simulo cloud and is
-  billed to your account. Hardware describes the job's own request, not queue priority:
-  it waits on the same shared GPU fleet as every other job.
+- Python 3.11 or newer with the Simulo client installed.
+- A Simulo account and `simulo login`.
+- Permission to publish assets to your organization.
+- Run every command below from the repository root.
 
 ## Assets
 
-- `assets/robot/f1tenth/f1tenth.usd`: an F1TENTH-compatible race car, already cleaned
-  for publishing. This file is the input to `simulo asset publish`. It sits outside this
-  sample directory, so `simulo run` never uploads it; the car reaches the job from the
-  catalog instead. The [assets tree](../../assets/) explains how its directories are
-  named.
+- `assets/robot/f1tenth/f1tenth.usd` is the source package included in this repository.
+- `robot/f1tenth:v1` is the organization-scoped catalog reference used by the task after
+  publication.
 
-  The asset started as upstream WheeledLab's own race-car package, which is not
-  publishable as-is: it embeds a sensor/ROS bridge subtree (a lidar publisher, a drive
-  bridge, odometry) that a publish rejects, and its collision meshes duplicate the
-  visual meshes at full resolution where a simpler collider already exists. Neither is
-  needed — the task itself uses a sensor-free observation space and disables every lidar
-  at startup — so the shipped file has that subtree removed and its collision geometry
-  simplified. Nothing about how the car drives changes.
-- `robot/f1tenth:v1`: the car once you have published it, pinned to version 1. The
-  reference carries no publisher segment, so it resolves against whichever organization
-  you are signed in as.
-
-The car has six joints, each resolved on its exact name in `task.py`: steering
-`rotator_left` / `rotator_right`, and wheels `wheel_front_left` / `wheel_front_right` /
-`wheel_back_left` / `wheel_back_right`. A car of your own with different joint names
-needs those names changed to match, in `on_start`, where they're resolved.
-`base_length`, `base_width`, `wheel_radius`, and `spawn_height` are this car's specific
-dimensions and ride height; a different chassis needs all four adjusted too, or it
-spawns clipping into or floating above the ground.
+The car has a floating base, four driven wheels, and two steering joints. If you substitute a
+different chassis, update the joint names and vehicle dimensions in `task.py`.
 
 ## Files and APIs
 
-- `task.py`: the application, the 4WD action mapping, the multi-term reward kernel, the
-  task, and `_train`, the training body. It declares no job.
-- `train.py`: the one job you submit, `train`, which calls `_train`. It is declared with
-  `@app.job(type="train", ...)`, so it saves the policy's `best` and `latest` checkpoints
-  automatically.
-- `eval.py`: the evaluation job and its on-track, moving, counter-clockwise success rule.
-- `.simuloignore`: files `simulo run` leaves out of the uploaded package.
-- `../../assets/robot/f1tenth/f1tenth.usd`: the race-car asset.
+- `task.py` defines `F1TenthDriftTask`, the track, action mapping, reward, camera, and training
+  helper.
+- `preview.py` checks the published robot, joints, action mapping, resets, and training loop.
+- `train.py` declares the `train` job.
+- `eval.py` checks that the car stays on track, keeps moving, and travels counter-clockwise.
+- `play.py` plays a saved checkpoint with an overhead camera and records the rollout.
+- `.simuloignore` excludes local files from submitted packages.
 
-Simulo names it uses, beyond those in [byo-urdf-arm](../byo-urdf-arm/):
-
-- `simulo.Asset.from_registry("robot/f1tenth:v1")`: the same organization-scoped
-  reference pattern as `byo-urdf-arm`, on a floating-base (mobile) robot instead of a
-  fixed one.
-- `robot.set_joint_position_target(...)` for the two steering joints and
-  `robot.set_joint_velocity_target(...)` for the four wheels, both restricted to their
-  own `joint_ids`.
-- `robot.set_root_pose(...)` and `robot.set_root_velocity(...)`, used at reset to
-  teleport the car to a random point on the track and again mid-episode to apply a small
-  periodic push.
-- `simulo.RLTrainer(..., agent_cfg=...)` with a KL-adaptive learning-rate scheduler and a
-  per-update KL guard, both explained in `_ppo_overrides`.
-- `simulo.Camera`, `simulo.SensorOffset.look_at(...)`, and `simulo.CameraSpawnConfig`
-  for an optional standalone, world-frame, top-down camera added directly to the scene
-  rather than attached to the robot, because a link name on a car you bring yourself is
-  never known in advance. Training leaves it off; it is there for playing a policy back,
-  which arrives in a later Simulo release.
-
-The reward is a single weighted sum of seven terms: side-slip (rewarded only inside a
-real-drift band, not while crawling or spinning out), speed-tracking against a 3 m/s
-cruise target, track progress, corner "turn energy", a cross-track penalty against the
-racing line, a counter-steer bonus, and an out-of-bounds termination penalty. The
-counter-steer bonus's weight is `0.0`: upstream ramps it in only after basic driving is
-learned, on a clock a Simulo `Task` could keep for itself, but a schedule compressed to
-fit this trainer's budget was measured to hold the lap less reliably and to diverge more
-often, so this port fixes every weight at upstream's starting value instead. Two similar
-simplifications apply to domain randomization
-(only spawn pose and a periodic push are randomized per episode; `simulo.Robot(...)`
-does accept `mass_scale` and `actuator_gains`, but only as constructor arguments applied
-once, uniformly, to every parallel environment — there is no way to re-roll them per
-episode the way a spawn pose is re-rolled, and tire friction has no setter at all) and
-to the actor/critic network (a fixed `[256, 128, 64]` shape, in place of upstream's
-requested `[64, 64]`). None of these change what the car is trained to do; they are
-stated in full
-in `task.py`'s module docstring.
+The policy action is `[throttle, steer]`. The task maps it to wheel velocity and steering
+position targets.
 
 ## Run it
 
-Publish the car first, from the repository root:
+Publish and inspect the asset before using any job:
 
 ```bash
-simulo login
 simulo asset publish assets/robot/f1tenth \
   --kind robot --name f1tenth --entry f1tenth.usd --base floating
-```
-
-`--base floating` because this is a mobile vehicle, not a bolted-down manipulator.
-Publishing uploads the package and validates it in the cloud (structural checks,
-USD-schema checks, and a physics settle probe) before publishing version 1. Add
-`--report report.json` to keep the full report, or `--json` for a machine-readable
-summary.
-
-Check what the catalog recorded:
-
-```bash
 simulo asset inspect robot/f1tenth:v1
 ```
 
-Then train:
+Publishing the same name again creates a new version. This sample remains pinned to `:v1` unless
+you update `task.py`.
+
+### Preview
+
+```bash
+simulo run samples/byo-f1tenth-drift/preview.py
+simulo recordings <job-id>
+```
+
+### Train
 
 ```bash
 simulo run samples/byo-f1tenth-drift/train.py --num-envs 256 --max-iterations 500
-```
-
-`--num-envs` and `--max-iterations` are `train`'s own parameters;
-`simulo run samples/byo-f1tenth-drift/train.py -h` lists them.
-
-The execution budget is eight hours, shared across the first attempt and up to two
-retries. Pressing Ctrl-C while following logs only detaches
-your terminal. Stop a queued or running job explicitly with its job id:
-
-```bash
-simulo cancel <job-id>
+simulo policy list
 ```
 
 ### Evaluate
-
-From the repository root, use `simulo policy list` to find the policy id, then run:
 
 ```bash
 simulo run samples/byo-f1tenth-drift/eval.py --policy <policy-id>:best
 ```
 
-The rule checks that the car stays on the track for 5 seconds, moves at least 1 m/s, and travels
-counter-clockwise.
+### Play
 
-The start of a real report, from evaluating a policy trained with this sample's default settings (256 environments, 500 iterations):
-
-```text
-RESULT
-  84 of 100 episodes succeeded. Likely range: 75% to 90%.
-  Each check:  stayed on the track for 5 s 84 of 100 · moving at least 1 m/s at the end 97 of 100 · moving counter-clockwise around the track 99 of 100
-  Among 16 failures: 12 missed only "stayed on the track for 5 s", 3 missed "stayed on the track for 5 s" and "moving at least 1 m/s at the end", 1 missed "stayed on the track for 5 s" and "moving counter-clockwise around the track".
-
-WHAT WAS TESTED
-  Policy     policy_elegant-kern-8wsjs2:best, saved at iteration 300 (training reward 91386.9)
-  Task       F1TenthDriftTask in task.py, unchanged since the policy was trained
-  Episodes   0 to 99, the same starting positions every time
-  Actions    the policy's best-guess action, without training's random variation
-  Success    stayed_on_track() in eval.py, with checks: stayed on the track for 5 s, moving at least 1 m/s at the end, moving counter-clockwise around the track
+```bash
+simulo run samples/byo-f1tenth-drift/play.py --policy <policy-id>:best
+simulo recordings <job-id>
 ```
+
+#### Try this
+
+- When adapting a chassis, run
+  `simulo run samples/byo-f1tenth-drift/preview.py --checks training-loop,action-map` to check
+  wheel and steering mappings before training.
+- Compare checkpoints with
+  `simulo run samples/byo-f1tenth-drift/eval.py --policy <policy-id>:best --compare <policy-id>:latest`
+  to see whether the reward-best and latest policies produce the same task outcome.
 
 ## What to expect
 
-Publishing is a one-time step; every run after that resolves `robot/f1tenth:v1` from the
-catalog and uploads nothing.
+One staging run on 2026-10-05 with `simulo 0.32.0` used the existing validated catalog asset
+`robot/f1tenth:v1`; it was not republished. Its content digest was
+`sha256:aa5fc36e5f45c1e56615371b50e201d2622d3e8e7dfd7e1951181a416a95c998`.
 
-`train`'s reward starts strongly negative and climbs quickly from there — real,
-non-degenerate learning. `best_reward` for a good run lands around 90,000 at the
-defaults (256 envs, 500 iterations), roughly 75,000 to 93,000 across runs, in roughly
-3.5-4 minutes of job time; wall-clock will vary with GPU class and load. Training is
-stochastic: most runs produce a good policy, and occasionally one diverges to `NaN`
-partway through. The training job keeps the policy's `best` checkpoint, the save with the
-highest mean episode reward, separately from `latest`, so a late divergence does not
-replace the strongest policy the run reached, though a run that diverges early leaves a
-correspondingly weaker `best`.
+Preview passed all checks. Action 0 drove all four wheels and action 1 drove both steering
+joints. Random and zero-action checks recorded 51 and 50 finite matching resets, respectively.
+The preview recording verified as 9,544 MCAP messages and included Lichtblick and Foxglove
+layout files.
 
-The result names the catalog reference the run trained against, alongside the training
-statistics:
+Training ran for 239.586 seconds. The returned best reward was `84258.0443`; `best` was saved at
+iteration 300 and `latest` at iteration 500 in `policy_horizontal-beam-kmsgm3`, so the two labels
+referenced checkpoints from different training iterations.
 
-```json
-{
-  "num_envs": 256,
-  "robot_asset": "robot/f1tenth:v1",
-  "iterations": 500,
-  "best_reward": 90189.89965820312
-}
-```
-
-`best_reward` is the training-time mean episode reward, and it tracks how the policy
-actually drives only loosely, so do not read it as a pass/fail number. If a run looks
-poor, rerun `train`; a fresh run usually does better.
-
-Be clear-eyed about what the resulting policy does. Played back from a spread of random
-starting positions, a policy from this training held the track from the large majority of
-them. The reward weights that shape the driving style are unchanged: side-slip is only
-rewarded inside a real drift band, and the counter-steer bonus stays off by default (see
-"Files and APIs" above), so the policy tends to drive as a fast racing-line follower more
-than a dramatic drifter. Reshaping the reward toward more slip is one of the things to try
-under "Extending it" below.
+Evaluation reported 91 of 100 successes: 91 stayed on track for 5 seconds, 97 were moving at
+least `1 m/s` at the end, and 100 moved counter-clockwise. The comparison found no clear
+difference: `best` scored 91 of 100 and `latest` 90 of 100, with five changed outcomes. Playback
+completed 1 episode and 300 steps with mean reward `88869.75 +/- 0.00`. Its verified MCAP had
+2,408 messages across 15 populated topics, including policy observations and actions, rewards,
+robot commands, terminations, transforms, and 300 packets on each overhead-camera video channel.
+Unlike the preview retrieval, the play retrieval returned no Lichtblick or Foxglove layout
+sidecars.
 
 ## Inspecting results
 
 ```bash
-simulo asset inspect robot/f1tenth:v1   # what the catalog recorded for the car
-simulo asset list                       # every asset in your organization's catalog
-simulo jobs                             # status, job IDs, and each job's policy
-simulo logs <job-id> --follow           # iteration and checkpoint lines
-simulo result <job-id>                  # the returned dictionary
-simulo policy list                      # your policies and their checkpoints
-simulo policy get <policy-id>:best      # download the best checkpoint, digest-verified
-simulo export <policy-id>:best          # the best checkpoint as a portable ONNX bundle
-simulo cancel <job-id>                  # stop a queued or running job
+simulo asset inspect robot/f1tenth:v1
+simulo asset list
+simulo jobs
+simulo logs <job-id> --follow
+simulo result <job-id>
+simulo policy list
+simulo recordings <job-id>
 ```
 
-To watch training itself, submit with `--viewstream` and open `simulo view` while it
-runs; streaming slows training, so use it to look, not for a timed run.
-
-`<job-id>` and `<policy-id>` are printed by `simulo run` and listed by `simulo jobs`.
-Every training job makes one policy, whose ID is the job's ID with a `policy_` prefix in
-place of `job_`. Stopping a log-follow session only detaches from the stream; it does not
-cancel the job.
+Use the asset inspection output to verify the version used by the job. Use the play recording to
+inspect the car's path around the track.
 
 ## Troubleshooting
 
-- The job fails while building the scene, naming an asset it cannot resolve: the car is
-  not in the catalog of the organization you are signed in as. Publish it, then submit
-  again.
-- `simulo asset publish` cannot tell which file to start from: pass
-  `--entry f1tenth.usd`.
-- The car falls through the ground or drives strangely: it was published without
-  `--base floating`. Publish again with it; that creates a new version, so update the
-  reference in `task.py` and re-publish before training against it.
-- `simulo run` prints "This wrote a local package only": you are not signed in.
-- The job stays `queued`: the cloud is waiting for GPU capacity.
-- The policy has only a `latest` checkpoint: a save becomes `best` only when an episode
-  finished since the previous save. Rerun with more iterations or a different seed.
-- The task cannot find its joints after you swap in a car of your own: the six names
-  `on_start` and `_compute_car_targets` look up are the ones this asset declares. Change
-  them to your car's names.
+If the asset cannot be resolved, confirm that it was published in the organization you are
+currently using and that `task.py` names the published version. If the car falls or its controls
+are reversed, run preview and follow the public
+[scene troubleshooting guide](https://docs.simulo.ai/guides/troubleshoot-a-scene-with-preview/)
+before training.
 
 ## Extending it
 
-- Publish a car of your own: point `simulo asset publish` at your own USD package,
-  choose the catalog name with `--name`, and change the reference at the top of
-  `task.py` to match.
-- Train for longer: raising `--max-iterations` gives the policy more chances at a better
-  peak reward, and the automatically saved `best` checkpoint means a late divergence still
-  doesn't cost you the run — though it does not guarantee the divergence won't happen at all.
-- Reshape the reward: the `rew_scale_*` class attributes on `F1TenthDriftTask` weight
-  each term against the others. `rew_scale_tlgr` in particular starts at `0.0`; raising
-  it turns on the counter-steer bonus upstream normally phases in later in training.
-  Raising `rew_scale_side_slip`, or lowering `slip_engage_threshold`, pushes the trained
-  policy from the racing-line follower "What to expect" describes toward more visible
-  drifting.
-- Change the track: `straight`, `line_radius`, `corner_in_radius`, and
-  `corner_out_radius` set the stadium's shape and how much drivable corridor the car has
-  before an episode terminates.
+Publish another compatible car under a new catalog name and update the reference, joint names,
+and chassis dimensions in `task.py`. You can also change the track geometry or reward weights,
+then compare `:best` and `:latest` with the same evaluation rule.
 
 ## Assets, licensing, attribution
 
-The task, reward shape, and track geometry in `task.py`, and the race-car asset in
-`assets/robot/f1tenth/`, are ported from **WheeledLab** (`UWRobotLearning/WheeledLab`),
-an open-source robotics research project from the University of Washington, used here
-under its BSD-3-Clause license:
+The task, reward shape, track geometry, and race-car asset are ported from
+[WheeledLab](https://github.com/UWRobotLearning/WheeledLab), an open-source robotics research
+project from the University of Washington, under its BSD 3-Clause license:
 
 > Copyright (c) 2025-2027, The Wheeled Lab Project Developers.
 > All rights reserved.
 >
-> Redistribution and use in source and binary forms, with or without modification,
-> are permitted provided that the following conditions are met:
+> Redistribution and use in source and binary forms, with or without modification, are permitted
+> provided that the following conditions are met:
 >
-> 1. Redistributions of source code must retain the above copyright notice,
->    this list of conditions and the following disclaimer.
+> 1. Redistributions of source code must retain the above copyright notice, this list of
+>    conditions and the following disclaimer.
+> 2. Redistributions in binary form must reproduce the above copyright notice, this list of
+>    conditions and the following disclaimer in the documentation and/or other materials
+>    provided with the distribution.
+> 3. Neither the name of the copyright holder nor the names of its contributors may be used to
+>    endorse or promote products derived from this software without specific prior written
+>    permission.
 >
-> 2. Redistributions in binary form must reproduce the above copyright notice,
->    this list of conditions and the following disclaimer in the documentation
->    and/or other materials provided with the distribution.
->
-> 3. Neither the name of the copyright holder nor the names of its contributors
->    may be used to endorse or promote products derived from this software without
->    specific prior written permission.
->
-> THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-> ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-> WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-> DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
-> ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-> (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-> LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-> ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-> (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-> SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+> THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR
+> IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND
+> FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
+> CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+> DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+> DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+> IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
+> OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-This robot is described as **F1TENTH-compatible** — a statement of physical
-compatibility with the open F1TENTH platform, not a claim to the F1TENTH trademark. A
-BSD-3-Clause license grants copying, modification, and redistribution rights; it does
-not grant trademark rights, and none are asserted here.
+"F1TENTH-compatible" describes physical compatibility with the open F1TENTH platform. It does
+not assert rights to the F1TENTH trademark.
 
-This sample's own code (the port itself, distinct from the license text above) is
-additionally available under the [MIT License](../../LICENSE), the same as every other
-sample here.
+This sample's port is also available under the repository's [MIT License](../../LICENSE).
 
-This sample installs no third-party packages.
-
-### Attribution
-
-Sample code (the port itself): Copyright (c) 2026 Simulo LLC.
+Sample code: Copyright (c) 2026 Simulo LLC.

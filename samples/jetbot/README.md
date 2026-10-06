@@ -2,155 +2,117 @@
 
 ## What this shows
 
-A small two-wheeled robot learns to turn toward a randomly chosen heading and drive along it as
-fast as it can, by setting the angular velocity of its left and right wheels. The two action
-values map one to one onto the two wheels, so the control problem and the actuator layout match.
-
-You will learn how to express a heading as a unit vector so the observation stays compact and
-has no angle wrap-around, how to resample the command on every reset so one policy learns all
-directions, and how a task with no failure condition is written (every episode simply runs out of
-time).
+Learn differential-drive control by training a two-wheeled robot to follow a changing commanded
+direction. The focused lesson is the direct mapping from two policy actions to left and right
+wheel velocities.
 
 ## Prerequisites
 
-- Python 3.11 or newer and the Simulo client: `python -m pip install --upgrade simulo`.
-- A Simulo account, signed in once with `simulo login`.
-- A clone of this repository. The commands below run from its root.
-- No GPU on your machine. The job asks for a Tier 1 GPU (T4) in the Simulo cloud and is
-  billed to your account. Hardware describes the job's own request, not queue priority:
-  it waits on the same shared GPU fleet as every other job.
+- Python 3.11 or newer with the Simulo client installed.
+- A Simulo account and `simulo login`.
+- Run every command below from the repository root.
 
 ## Assets
 
-- `simulo/robot/jetbot:v2`: a version-pinned catalog reference for the robot.
-
-The robot model is not bundled with this sample. It is fetched from the catalog when it is not
-already cached. Asset preparation and simulation startup occur before training output, so any job
-may have a quiet period after it reports `running`.
+The task uses the version-pinned catalog asset `simulo/robot/jetbot:v1`. The job fetches the
+robot from the catalog when it starts; you do not need to publish it.
 
 ## Files and APIs
 
-- `task.py`: the application, quaternion helper, reward kernel, and JetBot task.
-- `train.py`: the `train_jetbot` job, declared with `@app.job(type="train", ...)`, which
-  saves the policy's `best` and `latest` checkpoints automatically.
-- `eval.py`: the evaluation job and its commanded-direction success rule.
-- `.simuloignore`: files `simulo run` leaves out of the uploaded package.
+- `task.py` defines `JetbotTask`, command sampling, wheel actions, and the reward.
+- `preview.py` checks both driven wheels and the training loop before training.
+- `train.py` declares the `train_jetbot` PPO job.
+- `eval.py` checks motion in the commanded direction.
+- `play.py` plays a saved checkpoint with a camera and records the rollout.
+- `.simuloignore` excludes local files from submitted packages.
 
-Simulo names it uses, beyond those in the `cartpole` sample:
-
-- `robot.state.pose` for the orientation the forward vector is derived from, and
-  `robot.state.linear_velocity` for the speed term of the reward.
-- `robot.set_joint_velocity_target(..., joint_ids=...)` on the two wheel joints, resolved with
-  `robot.find_joints("left_wheel_joint")` and `robot.find_joints("right_wheel_joint")`.
+The task reads `robot.state` and writes wheel targets with
+`robot.set_joint_velocity_target(...)`.
 
 ## Run it
 
+### Preview
+
 ```bash
-simulo login
-simulo run samples/jetbot/train.py
+simulo run samples/jetbot/preview.py
+simulo recordings <job-id>
 ```
 
-For a quick check that the job launches, use `--max-iterations 2`. Add `--detach` to submit
-without waiting for the log.
+### Train
 
-What bounds `--num-envs` is memory, and the bound is per app rather than per tier: the other
-samples here ship much larger defaults. 16 is the figure measured for this app. Asking for more
-memory than the job is given ends the run with an out-of-memory failure rather than running it
-slowly. `simulo systems` reports a measured ceiling for Tier 1 and "not yet measured" for the
-other tiers; that figure comes from one workload and is not a platform-wide limit.
-
-The job has one configured 8-hour execution budget shared by the initial attempt and its two
-retries. Dependency and asset preparation happens before that execution deadline, so this is not
-an absolute billing ceiling. Run `simulo cancel <job-id>` to stop a queued or running job.
+```bash
+simulo run samples/jetbot/train.py
+simulo policy list
+```
 
 ### Evaluate
-
-From the repository root, use `simulo policy list` to find the policy id, then run:
 
 ```bash
 simulo run samples/jetbot/eval.py --policy <policy-id>:best
 ```
 
-The rule checks that the robot moves at least 0.1 m/s in its commanded direction at the end.
+The success rule uses the robot's velocity and current command.
 
-The start of a real report, from evaluating a policy trained with this sample's default settings (16 environments, 700 iterations):
+### Play
 
-```text
-RESULT
-  100 of 100 episodes succeeded. Likely range: 96% to 100%.
-  Each check:  moved at least 0.1 m/s in the commanded direction 100 of 100
-
-WHAT WAS TESTED
-  Policy     policy_persimmon-caption-errwkb:best, saved at iteration 700 (training reward 332.4)
-  Task       JetbotTask in task.py, unchanged since the policy was trained
-  Episodes   0 to 99, the same starting positions every time
-  Actions    the policy's best-guess action, without training's random variation
-  Success    kept_moving() in eval.py, with checks: moved at least 0.1 m/s in the commanded direction
+```bash
+simulo run samples/jetbot/play.py --policy <policy-id>:best --episodes 3
+simulo recordings <job-id>
 ```
+
+#### Try this
+
+- Run `simulo run samples/jetbot/preview.py --checks joint-sweep,action-map` to see which action
+  drives each wheel.
+- Compare the saved checkpoints with
+  `simulo run samples/jetbot/eval.py --policy <policy-id>:best --compare <policy-id>:latest`.
 
 ## What to expect
 
-An earlier single-GPU run of this code with `--num-envs 512` reported a best reward near 190 at
-iteration 50 and near 343 from iteration 150 onward. That run used far more parallel environments
-than the current default, so read its numbers as the shape of the curve rather than as figures
-this sample reproduces: fewer environments means less experience per iteration, so the same reward
-arrives later, if at all, within 700 iterations. `best_reward` is a mean completed-episode return
-across 300 control steps (5 seconds at 60 Hz), not a per-step reward. The alignment term can
-contribute at most 300 per episode; the velocity term supplies the remainder. Training is not
-bit-for-bit reproducible.
+One staging run on 2026-10-05 with `simulo 0.32.0` produced the following results. Preview passed
+all checks. The focused preview confirmed action 0 drove the left wheel and action 1 drove the
+right wheel; both wheel sweeps passed. The preview recording verified as 7,846 MCAP messages and
+included Lichtblick and Foxglove layout files.
 
-The result holds `num_envs` and training statistics such as `iterations`, `best_reward`, and
-checkpoint bookkeeping fields. Expect several minutes of startup before any training output
-appears, whatever `--max-iterations` you pass; total time past that grows with the iteration
-count. A first run can take longer still while the cloud prepares the runtime.
+Training ran for 249.014 seconds. The returned best reward was `325.0201`; `best` was saved at
+iteration 600 and `latest` at iteration 700 in `policy_eminent-commit-26xr5e`.
+
+Evaluation at the training spacing reported `100 of 100 episodes succeeded`, with all episodes
+moving at least `0.1 m/s` in the commanded direction. The comparison found no clear difference:
+`best` and `latest` were each 100 of 100, with zero changed outcomes.
+
+Playback completed 3 episodes and 897 steps with mean reward `318.05 +/- 26.77`. Its verified
+MCAP contained 7,187 messages, including 897 packets on each play-camera video channel. The
+default training command created 16 environments, matching the evaluation run's capacity.
 
 ## Inspecting results
 
 ```bash
-simulo jobs                           # status and job IDs
-simulo logs <job-id> --follow         # iteration and checkpoint lines
-simulo result <job-id>                # num_envs, iterations, best_reward
-simulo policy list                    # your policies and their checkpoints
-simulo policy get <policy-id>:best    # download the best checkpoint, digest-verified
-simulo export <policy-id>:best        # the best checkpoint as a portable ONNX bundle
-simulo cancel <job-id>                # stop a queued or running job
+simulo jobs
+simulo logs <job-id> --follow
+simulo result <job-id>
+simulo policy list
+simulo recordings <job-id>
 ```
 
-To see the robot drive, submit with `--viewstream` and open `simulo view` while it runs;
-streaming can slow training, so use it to look.
-
-`<job-id>` and `<policy-id>` are printed by `simulo run` and listed by `simulo jobs`. Every
-training job makes one policy, whose ID is the job's ID with a `policy_` prefix in place of
-`job_`; the training job saves its `best` and `latest` checkpoints automatically. Stopping a
-log-follow session only detaches from the stream; it does not cancel the job.
+The evaluation report shows whether final motion agrees with each episode's command. Use the
+recording to distinguish heading errors from a wheel-action mapping problem.
 
 ## Troubleshooting
 
-- The job is `running` but the log shows nothing for a while: the robot model may be fetched before
-  the simulation starts. See [Assets](#assets).
-- `simulo run` prints "This wrote a local package only": you are not signed in.
-- The job stays `queued`: the cloud is waiting for GPU capacity.
-- The reward stops improving after iteration 150 or so: that matches the cited run, which used
-  many more environments than the default. Raise `--max-iterations` to push further. Raising
-  `--num-envs` gives more experience per iteration, but memory bounds it: 32 has been measured
-  to complete for this app and 64 has not.
-- The job failed: `simulo logs` prints the platform's reason code and detail after its header.
+Use the public
+[scene troubleshooting guide](https://docs.simulo.ai/guides/troubleshoot-a-scene-with-preview/)
+when preview reports a joint or action failure. A quiet job may still be preparing its catalog
+asset before the simulation starts.
 
 ## Extending it
 
-- Reward shaping: `rew_scale_alignment` and `rew_scale_velocity` on `JetbotTask` weight
-  pointing the right way against moving fast.
-- Speed and episode length: `velocity_scale` and `episode_length_s`.
-- Give it somewhere to go: [Install a PyPI dependency](../pip-install-shapely/) drives the same
-  robot into a target zone and computes the reward with a third-party geometry library.
-- Continue training: `--from <policy-id>:best` with a higher `--max-iterations` total.
+Change how commands are sampled or adjust `velocity_scale`, then rerun preview before training.
+Keep the success rule based on independent robot state and the task's command.
 
 ## Assets, licensing, attribution
 
-The sample code is available under the [MIT License](../../LICENSE).
-
-This sample installs no third-party packages.
-
-### Attribution
+The catalog robot is supplied by Simulo. The sample code is available under the
+[MIT License](../../LICENSE).
 
 Sample code: Copyright (c) 2026 Simulo LLC.

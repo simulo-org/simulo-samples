@@ -87,7 +87,7 @@ jobs:
           . .venv/bin/activate
           python -m pip install --upgrade pip
           python -m pip install --upgrade simulo
-      - name: Package declared jobs
+      - name: Package all sample entry points
         run: |
           . .venv/bin/activate
           # Samples require credentials and cloud capacity to execute, which this secretless

@@ -1,25 +1,20 @@
-"""Play and record a trained Cartpole policy."""
-
-# Keep imports in source order so the public sample remains statement-for-statement aligned.
-# ruff: noqa: I001
+"""Play and record a trained JetBot direction-following policy."""
 
 from __future__ import annotations
 
-from task import CartpoleTask, app
-
 import simulo
+
+from task import JetbotTask, app
 
 
 @app.job(type="play", system=simulo.SystemType.TIER_1, timeout=15 * 60)
 def play(policy: simulo.PolicyCheckpoint, episodes: int = 3) -> None:
-    """Play a policy: simulo run play.py --policy policy_x:best."""
+    """Watch or record a policy: simulo run play.py --policy policy_x:best."""
     env = simulo.LearningEnv(
-        task=CartpoleTask(with_camera=True),
+        task=JetbotTask(with_camera=True),
         num_envs=1,
         device="cuda",
-        dt=1.0 / 120.0,
-        physics_steps_per_action=2,
-        env_spacing=4.0,
+        env_spacing=2.0,
         headless=True,
         seed=42,
         enable_cameras=True,

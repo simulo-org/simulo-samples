@@ -1,4 +1,4 @@
-"""Evaluate a JetBot policy for movement in its commanded direction."""
+"""Evaluate whether a JetBot policy moves in its commanded direction."""
 
 from __future__ import annotations
 
@@ -15,15 +15,20 @@ def evaluate(
     actions: str = "best",
 ):
     return simulo.evaluate(
-        JetbotTask(), policy, episodes=episodes, num_envs=num_envs, actions=actions
+        JetbotTask(),
+        policy,
+        episodes=episodes,
+        num_envs=num_envs,
+        actions=actions,
+        env_spacing=2.0,
     )
 
 
 @app.success
 def kept_moving(task):
     """Count an episode when the robot moves in its commanded direction."""
-    moving_in_commanded_direction = task.check(
+    command = task.commands
+    return task.check(
         "moved at least 0.1 m/s in the commanded direction",
-        (task.robot.state.linear_velocity[:, :2] * task.commands[:, :2]).sum(dim=-1) >= 0.1,
+        (task.robot.state.linear_velocity[:, :2] * command[:, :2]).sum(dim=-1) >= 0.1,
     )
-    return moving_in_commanded_direction

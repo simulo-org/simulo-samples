@@ -8,60 +8,15 @@ than an interface: there is no API here whose compatibility a semantic version c
 
 ## [Unreleased]
 
-### Added
-
-- `simulo install samples` as a documented way to get this repository, alongside
-  `git clone`, with options to choose a destination and a Git branch, tag, or commit.
-- `eval.py` beside `train.py` in every sample, with a sample-specific success rule and a
-  documented command for evaluating a saved `best` checkpoint.
-- `play.py` in the Cartpole sample, which plays a trained policy and records the playback
-  with an overhead camera that only playback turns on.
-
-### Changed
-
-- Every sample now uses the current client's one-job-per-file layout. `train.py` declares
-  the one training job, `@app.job(type="train")`, and you submit it with
-  `simulo run samples/<slug>/train.py`; `--job` no longer exists. Every sample now keeps
-  its application and task in `task.py`, which `train.py` and `eval.py` import. JetBot,
-  Humanoid, Franka reach, and Bring your own URDF arm moved theirs out of `train.py`. The Cartpole job is now named `train`.
-- Training jobs save their policy's `best` and `latest` checkpoints automatically, so the
-  samples no longer declare checkpoint volumes or `ResumableCheckpoint`, and a job's result
-  no longer carries a checkpoint path. The READMEs use `simulo policy list`,
-  `simulo policy get <policy-id>:best`, `simulo export <policy-id>:best`, and
-  `simulo run ... --from <policy-id>:best` in place of `simulo models` and
-  `--from <job-id>`. Each sample trains exactly what it trained before; the runtimes and
-  results each README describes were recorded with an earlier client.
-- The structure check accepts `train.py` plus optional `task.py`, `preview.py`, and `eval.py`,
-  requires each catalog row to list exactly one job, and discovery compares that job with the one
-  the client packages from `train.py`.
-- Every task now returns named end conditions as the dictionary half of `get_dones()`; tasks
-  without an early end condition return `{}`.
-- Removed the declared Simulo client compatibility range. The samples are written for the
-  latest client, installation upgrades to it, and a scheduled weekly check packages every
-  declared job with the latest published client. The runtimes and results each sample
-  describes were recorded with an earlier client.
-
-### Removed
-
-- Hello. Its job printed greetings, trained nothing, and saved no checkpoint.
-- Cartpole Eval. Its old evaluation and playback jobs are removed; `eval.py` beside every
-  training sample now provides policy evaluation.
-- The `rollout` job of Bring your own F1TENTH-compatible car, and with it the recorded
-  playback. Playing a policy back arrives in a later Simulo release.
-
-### Fixed
-
-- Migrated every GPU-requesting sample off the removed `@app.job(gpu=...)` parameter to
-  `system=simulo.SystemType.TIER_1`. The current client no longer accepts `gpu=`, so the
-  old form would raise `TypeError` at import time.
-- Corrected the generated "Hardware" claim from an L4-class GPU to a Tier 1 GPU (T4, 16 GB
-  VRAM): the tier every sample's job actually requests, and the tier this repository's
-  samples were actually validated against. Nothing in this repository requests or
-  provisions an L4.
-- Reworded the "Hardware" field and nearby Quick start / Prerequisites prose so "no GPU
-  requested" no longer reads as "starts sooner": every sample, GPU-requesting or not,
-  queues on the same single, shared GPU fleet, and the Hardware field
-  describes only a job's own resource request, not queue priority.
+- Add preview and play files to every sample.
+- Make evaluation spacing match training.
+- Update Humanoid so it walks.
+- Clamp actions before they reach each task.
+- Document the preview, train, evaluate, and play lifecycle.
+- Withdraw Humanoid while its default training is retuned to reliably learn to walk.
+- Withdraw Franka reach, Install a PyPI dependency, and Bring your own URDF while their
+  defaults are retuned. Each returns once its full preview, train, evaluate, and play run
+  is measured to work.
 
 ## [2026.09.1] - 2026-09-06
 

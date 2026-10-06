@@ -1,86 +1,37 @@
-"""JetBot: train a two-wheeled robot to drive in a commanded direction.
+"""Define a direction-following task for a two-wheeled JetBot.
 
-A small differential-drive robot learns to turn toward a randomly chosen heading and
-drive along it as fast as it can, by controlling the angular velocity of its left and
-right wheels. Two action values map directly onto the two wheels, so the control
-problem and the actuator layout match one to one.
-
-The robot model is not bundled with this sample. The version-pinned catalog reference
-is fetched when it is not already cached, so any job may have a quiet asset-preparation
-phase before training output appears.
-
-Task summary
-------------
-* Observation (6 values): the robot's forward direction as a unit vector (3) plus the
-  commanded direction as a unit vector (3, in the XY plane, re-randomised each episode).
-* Action (2 values): left and right wheel angular velocity, scaled by
-  ``velocity_scale``.
-* Reward: alignment (the dot product of the forward and commanded directions) plus
-  forward speed in the commanded direction.
-* Termination: none. The robot cannot really fail this task, so every episode
-  truncates at the time limit.
-
-What to expect
---------------
-An earlier single-GPU run with ``--num-envs 512`` reported a best reward near 190 at
-iteration 50 and near 343 from iteration 150 onward. That run used far more parallel
-environments than the default below, so read its numbers as the shape of the curve
-rather than as figures this sample reproduces: fewer environments means less experience
-per iteration, so the same reward arrives later, if at all, within 700 iterations.
-``best_reward`` is a mean completed-episode return across 300 control steps, not a
-per-step reward. The alignment term can contribute at most 300 per episode; the velocity
-term supplies the remainder. Training is not bit-for-bit reproducible.
-
-Run it
-------
-Sign in once with ``simulo login``, then::
-
-    simulo run samples/jetbot/train.py
-
-This file declares no job; submit ``train.py``.
-
-Use ``--max-iterations 2`` for a quick check that the job launches. What bounds
-``--num-envs`` is memory, and the bound is per app rather than per tier -- the other
-samples ship much larger defaults.
-
-16 is the figure measured for this app **with the live view on** (``--viewstream``).
-The live view is not free: it takes a large share of the job's memory budget before
-your environments get any, and that share does not shrink as you add environments.
-Turn it off and the same app on the same tier goes much further -- 512 and 4096
-environments both completed in our measurements.
-
-So size ``--num-envs`` for the way you are actually running. Watching a job live and
-training it at scale are different budgets, and the number that works for one will not
-be the number that works for the other. Asking for more memory than the job is given
-ends the run rather than slowing it down.
+The policy controls the left and right wheel speeds to move in a commanded
+direction.
 """
 
 from __future__ import annotations
 
 import math
+from typing import Tuple
 
 import simulo
 
-# The JetBot robot: a version-pinned catalog reference.
-jetbot = simulo.Asset.from_registry("simulo/robot/jetbot:v2")
+# The JetBot robot - a validated, version-pinned global-catalog asset.
+jetbot = simulo.Asset.from_registry("simulo/robot/jetbot:v1")
 
 # Advanced: pick a different Simulo runtime with
 # App("name", runtime=simulo.Runtime.from_registry("simulo/gpu-rl:2026.06"));
-# see https://docs.simulo.ai/concepts/runtimes/.
+# see the Runtimes docs.
 app = simulo.App("jetbot")
 
-# The one heavy import, deferred: on your machine this block records the import
-# instead of resolving it; in the cloud it is a plain import.
+# The ONE module-level heavy import - deferred under the runtime guard so discovery
+# records it as a remote import instead of resolving it.
 with app.runtime.imports():
-    import torch  # noqa: F401  (resolved only when the job runs in the cloud)
+    import torch  # noqa: F401  (resolved only in execution mode)
 
 
 def _quat_to_forward(quat: torch.Tensor) -> torch.Tensor:
     """Rotate the unit X vector ``[1, 0, 0]`` by a per-env quaternion (wxyz).
 
-    A plain typed module-level helper, not itself decorated. ``torch.jit.script``
-    compiles it transitively when the ``@app.runtime.torch_jit`` reward kernel below
-    calls it, and it also runs eagerly when ``JetbotTask.get_observations`` calls it.
+    Plain typed module-level helper (not itself decorated) - ``torch.jit.script``
+    recursively compiles it when it is called from the ``@app.runtime.torch_jit`` reward
+    kernel below, and it also runs eagerly when called directly from
+    ``JetbotTask.get_observations``.
     """
     w, x, y, z = quat[:, 0], quat[:, 1], quat[:, 2], quat[:, 3]
     forward_x = 1.0 - 2.0 * (y * y + z * z)
@@ -99,18 +50,18 @@ def _compute_rewards(
 ) -> torch.Tensor:
     """JIT-compiled alignment + velocity reward kernel.
 
-    ``@app.runtime.torch_jit`` is a marker on your machine and ``torch.jit.script`` in
-    the cloud, so this can live at module level and its body never runs at submit.
-    ``_quat_to_forward`` is compiled transitively: TorchScript scripts the plain typed
-    functions a kernel calls.
+    ``@app.runtime.torch_jit`` is a no-op marker at submit and real ``torch.jit.script`` on
+    execution, so this lives at module level and is torch-free to *define* during
+    discovery (its body never runs at submit). ``_quat_to_forward`` is compiled
+    transitively - TorchScript recursively scripts plain typed functions it calls.
     """
     forward = _quat_to_forward(root_quat)
     alignment = (forward * commands).sum(dim=-1)
     velocity_in_cmd_dir = (root_lin_vel[:, :2] * commands[:, :2]).sum(dim=-1)
     reward = rew_scale_alignment * alignment + rew_scale_velocity * velocity_in_cmd_dir
-    # ``.view(-1)`` is belt and braces here: nothing above squeezes, so ``reward``
-    # is already (num_envs,) even when num_envs == 1, but it locks in the per-env
-    # reward contract explicitly rather than relying on that being true.
+    # ``.view(-1)`` is harmless belt-and-braces here - nothing above ``.squeeze()``s,
+    # so ``reward`` is already (num_envs,) even when num_envs == 1 - but it locks in
+    # the per-env reward contract explicitly rather than relying on that being true.
     return reward.view(-1)
 
 
@@ -130,12 +81,16 @@ class JetbotTask(simulo.Task):
     rew_scale_alignment = 1.0
     rew_scale_velocity = 0.5
 
-    # Set by the training base class when the job runs. Declared here only so a
-    # type checker sees the names the methods read; the annotations are strings.
+    # Framework-injected at runtime by ``simulo.core.Task`` / ``LearningEnv`` (declared
+    # here only so the type checker sees the names the methods read; PEP 563 strings).
     device: str
     num_envs: int
     max_episode_length: int
     episode_length_buf: torch.Tensor
+
+    def __init__(self, with_camera: bool = False):
+        super().__init__()
+        self._with_camera = with_camera
 
     def build(self, scene: simulo.Scene) -> None:
         scene.add(simulo.Terrain.plane(name="ground"), at="/World", per_environment=False)
@@ -146,6 +101,18 @@ class JetbotTask(simulo.Task):
         )
         self.robot = simulo.Robot(asset=jetbot, initial_pose=simulo.Pose.identity())
         scene.add(self.robot, at="/World/Robot")
+        if self._with_camera:
+            scene.add(
+                simulo.Camera(
+                    width=640,
+                    height=480,
+                    data_types=["rgb"],
+                    update_period=1.0 / 30.0,
+                    offset=simulo.SensorOffset.look_at(pos=(0.0, 0.0, 5.0), target=(0.0, 0.0, 0.0)),
+                ),
+                at="/World/play_camera",
+                per_environment=False,
+            )
 
     def on_start(self, env: simulo.LearningEnv) -> None:
         left = self.robot.find_joints("left_wheel_joint")
@@ -169,12 +136,15 @@ class JetbotTask(simulo.Task):
             self.commands,
         )
 
-    def get_dones(self) -> tuple[dict[str, torch.Tensor], torch.Tensor]:
+    def get_dones(self) -> Tuple[dict[str, torch.Tensor], torch.Tensor]:
         truncated = self.episode_length_buf >= self.max_episode_length - 1
         terminated = {}
         return terminated, truncated
 
     def apply_actions(self, actions: torch.Tensor) -> None:
+        # Trained policies can emit values outside the range. Clamp before scaling
+        # so the robot is not over-driven.
+        actions = torch.clamp(actions, -1.0, 1.0)
         scaled_velocities = actions * self.velocity_scale
         self.robot.set_joint_velocity_target(scaled_velocities, joint_ids=self._wheel_joint_ids)
 

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import os
 import re
@@ -50,15 +51,21 @@ REQUIRED_FIELDS = {
     "published": bool,
 }
 DIFFICULTIES = ("introductory", "intermediate", "advanced")
-# Each sample submits exactly one job, from train.py. A sample may also keep its
-# application and task in task.py, which train.py imports; a task file declares no job.
+# Each sample submits exactly one training job, from train.py. Its other entry points
+# keep the lifecycle visible without changing the catalog's one-job meaning.
 ENTRY_FILE = "train.py"
-# A sample may also keep one preview, evaluation, or play job beside its training job.
 PREVIEW_FILE = "preview.py"
 EVAL_FILE = "eval.py"
 PLAY_FILE = "play.py"
-SAMPLE_FILES = {ENTRY_FILE, "README.md", ".simuloignore"}
-OPTIONAL_SAMPLE_FILES = {"task.py", PREVIEW_FILE, EVAL_FILE, PLAY_FILE}
+SAMPLE_FILES = {
+    ".simuloignore",
+    "README.md",
+    "task.py",
+    PREVIEW_FILE,
+    ENTRY_FILE,
+    EVAL_FILE,
+    PLAY_FILE,
+}
 IGNORED_SAMPLE_ENTRIES = {"__pycache__", ".simulo"}
 SLUG_PATTERN = re.compile(r"[a-z0-9][a-z0-9-]*\Z")
 # The kinds `simulo asset publish --kind` accepts. A catalog reference is
@@ -144,48 +151,19 @@ def read_index_block(readme: str) -> str:
     return readme[content_start:end]
 
 
-def render_sample(entry: dict[str, Any]) -> str:
-    concepts = ", ".join(entry["concepts"])
-    assets = ", ".join(f"`{asset}`" for asset in entry["assets"]) or "none"
-    runtime_unit = "minute" if entry["runtime_minutes"] == 1 else "minutes"
-    hardware = (
-        "Tier 1 GPU job (T4, 16 GB VRAM); no local GPU required"
-        if entry["gpu"]
-        else "no GPU requested by this job; it queues on the same shared GPU fleet as GPU jobs"
-    )
-    return (
-        f"- [{entry['title']}](samples/{entry['slug']}/): {entry['robot']}. "
-        f"{entry['task']} Concepts: {concepts}. Assets: {assets}. Hardware: {hardware}. "
-        f"Runtime: about {entry['runtime_minutes']} {runtime_unit}."
-    )
-
-
 def render_index(entries: list[dict[str, Any]]) -> str:
     visible = present_entries(entries)
     if not visible:
         return "\nNo sample directories are available in this checkout.\n"
 
-    by_goal: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    by_difficulty: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    lines = ["", "| Sample | Difficulty | Main lesson | Assets |", "| --- | --- | --- | --- |"]
     for entry in visible:
-        by_goal[entry["learning_goal"]].append(entry)
-        by_difficulty[entry["difficulty"]].append(entry)
-
-    lines = ["", "### By learning goal", ""]
-    for learning_goal, grouped_entries in by_goal.items():
-        lines.extend((f"#### {learning_goal}", ""))
-        lines.extend(render_sample(entry) for entry in grouped_entries)
-        lines.append("")
-
-    lines.extend(("### By difficulty", ""))
-    for difficulty in DIFFICULTIES:
-        grouped_entries = by_difficulty.get(difficulty, [])
-        if not grouped_entries:
-            continue
-        lines.extend((f"#### {difficulty.capitalize()}", ""))
-        lines.extend(render_sample(entry) for entry in grouped_entries)
-        lines.append("")
-    return "\n".join(lines)
+        assets = ", ".join(f"`{asset}`" for asset in entry["assets"]) or "None"
+        lines.append(
+            f"| [{entry['title']}](samples/{entry['slug']}/) | "
+            f"{entry['difficulty'].capitalize()} | {entry['learning_goal']} | {assets} |"
+        )
+    return "\n".join(lines) + "\n"
 
 
 def write_index(entries: list[dict[str, Any]]) -> None:
@@ -220,22 +198,67 @@ def validate_directories(entries: list[dict[str, Any]]) -> None:
     if missing_directories:
         fail(f"samples.toml entries missing directories: {', '.join(missing_directories)}")
 
-    for slug, directory in directories.items():
+    errors: list[str] = []
+    for slug, directory in sorted(directories.items()):
         # Importing a sample, which `simulo run` and therefore --discover do, leaves
         # __pycache__/ behind, and an offline `simulo run` leaves .simulo/. Both are
         # ignored by git and neither is part of the sample.
         present = {path.name for path in directory.iterdir()} - IGNORED_SAMPLE_ENTRIES
-        if not SAMPLE_FILES <= present <= SAMPLE_FILES | OPTIONAL_SAMPLE_FILES:
+        missing = sorted(SAMPLE_FILES - present)
+        unexpected = sorted(present - SAMPLE_FILES)
+        if missing or unexpected:
             expected = ", ".join(sorted(SAMPLE_FILES))
-            optional = ", ".join(sorted(OPTIONAL_SAMPLE_FILES))
             actual = ", ".join(sorted(present)) or "(empty)"
-            fail(
-                f"samples/{slug}/ must contain exactly {expected}, and optionally {optional}; "
+            details = []
+            if missing:
+                details.append(f"missing {', '.join(missing)}")
+            if unexpected:
+                details.append(f"unexpected {', '.join(unexpected)}")
+            errors.append(
+                f"samples/{slug}/: {'; '.join(details)}; expected exactly {expected}; "
                 f"found {actual}"
             )
         for file_name in present:
             if not (directory / file_name).is_file():
-                fail(f"samples/{slug}/{file_name} must be a regular file")
+                errors.append(f"samples/{slug}/{file_name} must be a regular file")
+    if errors:
+        fail(
+            "every sample now requires task.py, preview.py, train.py, eval.py, and play.py; "
+            "replace the incomplete sample files before this check can pass:\n- "
+            + "\n- ".join(errors)
+        )
+
+
+def find_observation_calls(path: Path) -> list[int]:
+    """Return lines that call get_observations() in an evaluation entry point."""
+    try:
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    except SyntaxError as error:
+        fail(f"{path.relative_to(ROOT)} is not valid Python: {error.msg} on line {error.lineno}")
+    return [
+        node.lineno
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and (
+            isinstance(node.func, ast.Name)
+            and node.func.id == "get_observations"
+            or isinstance(node.func, ast.Attribute)
+            and node.func.attr == "get_observations"
+        )
+    ]
+
+
+def validate_evaluations(entries: list[dict[str, Any]]) -> None:
+    violations = []
+    for entry in present_entries(entries):
+        path = SAMPLES_DIR / entry["slug"] / EVAL_FILE
+        for line in find_observation_calls(path):
+            violations.append(f"{path.relative_to(ROOT)}:{line}")
+    if violations:
+        fail(
+            "evaluation must use independent task state, not get_observations(): "
+            + ", ".join(violations)
+        )
 
 
 def parse_asset_reference(reference: str, label: str) -> tuple[str, str, bool] | None:
@@ -356,6 +379,7 @@ def present_entries(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def validate_readmes(entries: list[dict[str, Any]]) -> None:
     for entry in present_entries(entries):
         readme_path = SAMPLES_DIR / entry["slug"] / "README.md"
+        current_heading = ""
         headings = [
             match.group(1).strip()
             for line in readme_path.read_text(encoding="utf-8").splitlines()
@@ -366,6 +390,15 @@ def validate_readmes(entries: list[dict[str, Any]]) -> None:
                 f"samples/{entry['slug']}/README.md level-two headings must be: "
                 + ", ".join(README_HEADINGS)
             )
+        for line_number, line in enumerate(readme_path.read_text(encoding="utf-8").splitlines(), 1):
+            if match := re.fullmatch(r"##\s+(.+?)\s*", line):
+                current_heading = match.group(1).strip()
+            elif match := re.fullmatch(r"###\s+(Preview|Evaluate|Play)\s*", line):
+                if current_heading != "Run it":
+                    fail(
+                        f"samples/{entry['slug']}/README.md:{line_number} must keep "
+                        f"{match.group(1)!r} under the Run it heading"
+                    )
 
 
 def validate_index(entries: list[dict[str, Any]]) -> None:
@@ -602,6 +635,7 @@ def main() -> int:
         assets = validate_assets(entries)
         if entries:
             validate_readmes(entries)
+            validate_evaluations(entries)
         if args.write_index:
             write_index(entries)
         validate_index(entries)

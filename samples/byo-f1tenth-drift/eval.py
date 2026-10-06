@@ -1,4 +1,4 @@
-"""Evaluate a drifting policy for staying on the track while moving."""
+"""Evaluate whether a drifting policy stays on track while moving."""
 
 from __future__ import annotations
 
@@ -14,8 +14,6 @@ def evaluate(
     num_envs: int = 100,
     actions: str = "best",
 ):
-    # Training spaces the copies 7 m apart, because a track spans about 4 m by 5.6 m.
-    # Evaluate with the same spacing.
     return simulo.evaluate(
         F1TenthDriftTask(),
         policy,

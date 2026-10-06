@@ -1,4 +1,4 @@
-"""Evaluate a Cartpole policy by balancing the pole to the time limit."""
+"""Evaluate whether a Cartpole policy balances the pole to the time limit."""
 
 from __future__ import annotations
 
