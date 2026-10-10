@@ -115,13 +115,20 @@ cube's top face.
 ### Live play
 
 ```bash
-simulo run samples/franka-reach-from-camera/play.py --frozen --policy <policy-id>:latest --episodes 20 --seed 42 --record false --viewstream
+simulo run samples/franka-reach-from-camera/play.py --frozen --policy <policy-id>:latest --episodes 20 --seed 42 --record false --viewstream --detach
 ```
 
-Open the live-view link printed by submission. Playback is paced to simulation
-time; 20 episodes provide about one minute of live play after setup. Live play keeps the policy camera's
-training render settings. The human view is separate from the 100 x 100 camera
-input; changing the human view does not move that policy camera.
+Submission prints the play job ID and returns without waiting for logs.
+Open the viewer while that job is running:
+
+```bash
+simulo view <play-job-id>
+```
+
+Playback is paced to simulation time; 20 episodes provide about one minute of
+live play after setup. Live play keeps the policy camera's training render
+settings. The human view is separate from the 100 x 100 camera input; changing
+the human view does not move that policy camera.
 
 ### Record each episode
 
@@ -154,17 +161,24 @@ conversion on that machine; it does not measure task success.
 
 ## What to expect
 
-_Measured in one staging run with the candidate `simulo` 0.33.0 client. These
-measured results are not a guarantee._
+_Measured in one seeded staging run with the candidate `simulo` 0.33.0 client.
+These results are not a guarantee._
 
 Training (job `job_modern-chamfer-d2pda5`) completed 600 PPO updates with
-128 environments and seed 42 on Tier 1 (T4) in 28.02 minutes. This wall time
-includes startup and artifact sealing and excludes queue wait. The catalog
-rounds the measured 28.019953 minutes to 28 minutes.
+128 environments and seed 42 on Tier 1 (T4) in 28.02 minutes. This wall time includes
+startup and artifact sealing and excludes queue wait. Observed peak job RAM
+was 8.05 GiB against the 12 GiB cap, with no observed swap use. The final
+unsampled interval may have had a higher memory peak. GPU memory was not measured.
 
 Evaluating the latest checkpoint at update 600 (job `job_patient-cupola-t007bg`)
 reported 88 of 100 episodes succeeded on numbered starts 0 through 99:
 the fingertips finished within 5 cm of the target point above the cube.
+One seeded run does not establish the average score or results for other seeds.
+Full training on other GPU tiers was not measured.
+
+For a cost estimate, use the measured 28.02 minutes of T4 execution at your
+applicable rate, plus provisioning, queue-related fleet time and fixed services.
+The 45-minute job timeout is a runtime limit, not a spend cap.
 
 ## Inspecting results
 
