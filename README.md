@@ -75,6 +75,7 @@ the assets it needs.
 | [Bring your own F1TENTH-compatible car](samples/byo-f1tenth-drift/) | Intermediate | Bring your own robot | `robot/f1tenth:v1` |
 | [Bring your own URDF](samples/byo-urdf-arm/) | Intermediate | Bring your own robot | `robot/byo-urdf-arm:v1` |
 | [Franka reach from camera](samples/franka-reach-from-camera/) | Advanced | Find a reaching target through a camera | `simulo/robot/franka-panda:v2` |
+| [Cartpole from camera](samples/cartpole-from-camera/) | Advanced | Balance a pole through a camera | `simulo/robot/cartpole:v1` |
 <!-- END INDEX -->
 
 ## Bring your own robot

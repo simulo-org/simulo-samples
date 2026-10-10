@@ -110,3 +110,18 @@ learning_goal = "Find a reaching target through a camera"
 # Rounded from 28.019953 minutes: T4, 600 updates, job job_modern-chamfer-d2pda5.
 runtime_minutes = 28
 published = true
+
+[[samples]]
+slug = "cartpole-from-camera"
+title = "Cartpole from camera"
+robot = "Cart and pole"
+task = "Balance a pole using a fixed camera and the cart and pole velocities."
+concepts = ["Policy cameras", "named policy inputs", "training-only critic inputs", "PPO", "ONNX export"]
+assets = ["simulo/robot/cartpole:v1"]
+jobs = ["train"]
+gpu = true
+difficulty = "advanced"
+learning_goal = "Balance a pole through a camera"
+# Rounded from 36.8 minutes: T4, 550 updates, job 0c9403bf-6121-4cc8-a929-e404516e97a4.
+runtime_minutes = 37
+published = true
