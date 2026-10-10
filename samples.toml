@@ -95,3 +95,18 @@ difficulty = "intermediate"
 learning_goal = "Bring your own robot"
 runtime_minutes = 8
 published = true
+
+[[samples]]
+slug = "franka-reach-from-camera"
+title = "Franka reach from camera"
+robot = "Franka Panda arm"
+task = "Reach a cube using a fixed camera and the arm's joint positions and velocities."
+concepts = ["Policy cameras", "named policy inputs", "training-only critic inputs", "DifferentialIKController", "ONNX export"]
+assets = ["simulo/robot/franka-panda:v2"]
+jobs = ["train_franka_reach_from_camera"]
+gpu = true
+difficulty = "advanced"
+learning_goal = "Find a reaching target through a camera"
+# Rounded from 28.019953 minutes: T4, 600 updates, job job_modern-chamfer-d2pda5.
+runtime_minutes = 28
+published = true
